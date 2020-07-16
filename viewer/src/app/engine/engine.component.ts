@@ -10,6 +10,7 @@ import { FXAAShader } from 'three-full';
 import * as THREE from 'three';
 import * as FromOrbitControls from 'three-orbit-controls';
 import GLTFLoader from 'three-gltf-loader';
+// import * as OBJLoader from 'three-obj-loader';
 import {
   EffectComposer,
   RenderPass,
@@ -51,6 +52,7 @@ export class EngineComponent {
   camera: PerspectiveCamera;
   renderer: WebGLRenderer;
   loader: GLTFLoader;
+  // objLoader: OBJLoader;
   controls: any;
   composer: EffectComposer;
   hemiLight: HemisphereLight;
@@ -63,7 +65,7 @@ export class EngineComponent {
   fxaaPass;
   wireframeEnabled = false;
   baseMesh;
-  scenePath = 'assets/scene.gltf';
+  scenePath = 'assets/woodden-giraffe.gltf';
 
   onModeChanged(mode: Modes) {
     console.log(mode);
@@ -88,6 +90,7 @@ export class EngineComponent {
 
   private loadDefault = () => {
     this.loader.load(this.scenePath, (loadedGltf) => {
+      this.scene.remove(this.wireframe);
       this.gltf = loadedGltf;
       this.scene.add(this.gltf.scene);
       const bb = new THREE.Box3();
@@ -97,29 +100,30 @@ export class EngineComponent {
   };
 
   private loadWireframe = () => {
-    this.loader.load(this.scenePath, (loadedGltf) => {
-      this.gltf = loadedGltf;
+    this.loader.load(this.scenePath, (gltf) => {
+      this.scene.remove(this.gltf.scene);
+      const mesh = gltf.scene.children[0];
+      console.log(mesh);
+      console.log(mesh.scale);
+      const baseGeo = (mesh as any).geometry;
+
+      var geo = new THREE.WireframeGeometry(baseGeo); // or EdgesGeometry
+      var mat = new THREE.LineBasicMaterial({ color: 0x000, linewidth: 1 });
+      var wireframe = new THREE.LineSegments(geo, mat);
+
+      const solid = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const base = new THREE.Mesh(baseGeo, solid);
+      base.scale.set(mesh.scale.x, mesh.scale.y, mesh.scale.y);
+      wireframe.scale.set(mesh.scale.x, mesh.scale.y, mesh.scale.y);
+      this.wireframe = new THREE.Group();
+      this.wireframe.add(base);
+      this.wireframe.add(wireframe);
+
+      this.scene.add(this.wireframe);
+
       const bb = new THREE.Box3();
       bb.setFromObject(this.gltf.scene);
       bb.getCenter(this.controls.target);
-
-      this.gltf.scene.traverse((child: any) => {
-        if (child.isMesh) {
-          const edgeMaterial = new THREE.EdgesGeometry(child.geometry);
-          const wireframeMaterial = new THREE.LineBasicMaterial({
-            color: 0x000000,
-            linewidth: 2,
-          });
-          const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
-          this.baseMesh = new THREE.Mesh(child.geometry, material);
-          this.wireframe = new THREE.LineSegments(
-            edgeMaterial,
-            wireframeMaterial
-          );
-          this.scene.add(this.wireframe);
-          this.scene.add(this.baseMesh);
-        }
-      });
     });
   };
 
@@ -173,7 +177,7 @@ export class EngineComponent {
     this.scene = new Scene();
     this.loader = new GLTFLoader();
 
-    // this.scene.fog = new THREE.Fog(0xffffff, 1, 1000);
+    this.scene.fog = new THREE.Fog(0xffffff, 1, 1000);
 
     this.camera = new PerspectiveCamera(60);
     this.camera.position.z = 2;
@@ -191,18 +195,19 @@ export class EngineComponent {
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    const bloom = new BloomEffect({
-      luminanceThreshold: 0.9,
-      luminanceSmoothing: 0.2,
-      resolutionScale: 1,
-    });
-    const effectPass = new EffectPass(this.camera, bloom);
+    const effectPass = new EffectPass(this.camera);
     effectPass.renderToScreen = true;
     this.composer.addPass(effectPass);
   }
 
   private setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+
+    console.log(this.controls);
+    this.controls.mouseButtons = {
+      ORBIT: 0,
+      PAN: 2, // TODO also 1!
+    };
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
     this.controls.rotateSpeed = 0.2;
