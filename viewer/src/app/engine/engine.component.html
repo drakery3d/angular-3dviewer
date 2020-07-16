@@ -1,3 +1,8 @@
-<div class="engine-wrapper">
-  <canvas #rendererCanvas id="renderCanvas"></canvas>
-</div>
+<div #viewer></div>
+<select
+  id="dropdown"
+  class="button"
+  (change)="onModeChanged($event.target.value)"
+>
+  <option *ngFor="let mode of modes">{{ mode }}</option>
+</select>
