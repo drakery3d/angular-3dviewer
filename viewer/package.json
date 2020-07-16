@@ -24,6 +24,7 @@
     "three": "^0.118.3",
     "three-full": "^28.0.2",
     "three-gltf-loader": "^1.111.0",
+    "three-obj-loader": "^1.1.3",
     "three-orbit-controls": "^82.1.0",
     "tslib": "^2.0.0",
     "zone.js": "~0.10.3"
