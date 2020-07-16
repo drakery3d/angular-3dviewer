@@ -177,7 +177,8 @@ export class EngineComponent {
 
     this.scene.fog = new THREE.Fog(0xffffff, 1, 1000);
 
-    this.camera = new PerspectiveCamera(60);
+    // TODO set near and far clipping based on object size
+    this.camera = new PerspectiveCamera(60, 1, 0.001, 1000);
     this.camera.position.z = 2;
 
     this.renderer = new WebGLRenderer({ antialias: true });
@@ -210,6 +211,9 @@ export class EngineComponent {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
     this.controls.rotateSpeed = 0.2;
+    this.controls.zoomSpeed = 1.5;
+    console.log(this.controls);
+    this.controls.target.set(0, 0, 0);
   }
 
   private animate(): void {
