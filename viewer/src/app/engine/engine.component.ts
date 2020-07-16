@@ -10,11 +10,9 @@ import { FXAAShader } from 'three-full';
 import * as THREE from 'three';
 import * as FromOrbitControls from 'three-orbit-controls';
 import GLTFLoader from 'three-gltf-loader';
-// import * as OBJLoader from 'three-obj-loader';
 import {
   EffectComposer,
   RenderPass,
-  BloomEffect,
   EffectPass,
   ShaderPass,
 } from 'postprocessing';
@@ -130,7 +128,7 @@ export class EngineComponent {
   ngAfterViewInit() {
     this.setupRenderer();
     this.setupLights();
-    this.setupComposer();
+    // this.setupComposer();
     this.setupControls();
     this.onWindowResize();
     this.animate();
@@ -189,6 +187,7 @@ export class EngineComponent {
     this.renderer.shadowMap.enabled = true;
   }
 
+  // TODO antialiasing doesn't work with composer
   private setupComposer() {
     this.composer = new EffectComposer(this.renderer);
 
@@ -214,7 +213,8 @@ export class EngineComponent {
   }
 
   private animate(): void {
-    this.composer.render();
+    this.renderer.render(this.scene, this.camera);
+    // this.composer.render();
     this.controls.update();
     window.requestAnimationFrame(() => this.animate());
   }
@@ -229,12 +229,15 @@ export class EngineComponent {
       this.container.nativeElement.clientHeight
     );
 
-    /* this.fxaaPass = new ShaderPass(FXAAShader);
+    /*   this.fxaaPass = new ShaderPass(FXAAShader);
     const pixelRatio = this.renderer.getPixelRatio();
-    this.fxaaPass.screen.material.uniforms['resolution'].value.x =
+    const uniforms = this.fxaaPass.material.uniforms;
+
+    this.fxaaPass.material.uniforms['resolution'].value.x =
       1 / (this.container.nativeElement.offsetWidth * pixelRatio);
-    this.fxaaPass.screen.material.uniforms['resolution'].value.y =
+    this.fxaaPass.material.uniforms['resolution'].value.y =
       1 / (this.container.nativeElement.offsetHeight * pixelRatio);
+
     this.composer.addPass(this.fxaaPass);
     this.fxaaPass.renderToScreen = true;
     console.log('resize'); */
