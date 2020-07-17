@@ -9,13 +9,15 @@ import {
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+// import { OrbitControls } from './OrbitControlsModified';
+import { OrbitControls } from './controls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
-import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass';
-import { SAOPass } from 'three/examples/jsm/postprocessing/SAOPass';
+// import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass';
+// import { SAOPass } from 'three/examples/jsm/postprocessing/SAOPass';
 // import { HorizontalBlurShader } from 'three/examples/jsm/shaders/HorizontalBlurShader';
 // import { VerticalBlurShader } from 'three/examples/jsm/shaders/VerticalBlurShader';
 // import { EffectPass } from 'postprocessing';
@@ -43,7 +45,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private renderer: THREE.WebGLRenderer;
   private camera: THREE.PerspectiveCamera;
   private scene: THREE.Scene;
-  private controls: OrbitControls;
+  private controls: any;
   private composer: EffectComposer;
   private fxaaPass: ShaderPass;
 
@@ -127,7 +129,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   }
 
   private createTestScene() {
-    new GLTFLoader().load('assets/Astronaut.glb', (result) => {
+    new GLTFLoader().load('assets/scene.gltf', (result) => {
       const model = result.scene.children[0];
       model.scale.set(10, 10, 10);
       model.traverse((obj) => {
