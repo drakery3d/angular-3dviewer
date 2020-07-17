@@ -36,7 +36,7 @@ class Controls extends EventDispatcher {
   keys = {LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40};
   mouseButtons = {
     LEFT: MOUSE.ROTATE,
-    MIDDLE: MOUSE.DOLLY,
+    MIDDLE: MOUSE.PAN,
     RIGHT: MOUSE.PAN,
   };
   touches = {ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN};
@@ -140,7 +140,7 @@ class Controls extends EventDispatcher {
     //this.dispatchEvent( { type: 'dispose' } ); // should this be added here?
   }
 
-  private update() {
+  update() {
     var offset = new Vector3();
 
     // so camera.up is the orbit axis

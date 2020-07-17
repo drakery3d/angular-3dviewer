@@ -6,6 +6,7 @@ import {
   OnDestroy,
   AfterViewInit,
   HostListener,
+  Host,
 } from '@angular/core';
 
 import * as THREE from 'three';
@@ -15,6 +16,7 @@ import {FXAAShader} from 'three/examples/jsm/shaders/FXAAShader';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass';
 
+// import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import {OrbitControls} from './controls';
 
 @Component({
@@ -51,7 +53,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private renderer: THREE.WebGLRenderer;
   private camera: THREE.PerspectiveCamera;
   private scene: THREE.Scene;
-  private controls: any;
+  private controls: OrbitControls;
   private composer: EffectComposer;
   private fxaaPass: ShaderPass;
 
@@ -80,7 +82,14 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:keypress', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    if (event.keyCode === 114) this.focusObject(this.model, true);
+    // console.log(event.keyCode);
+    enum Keys {
+      R = 114,
+      W = 119,
+      F = 102,
+      S = 115,
+    }
+    if (event.keyCode === Keys.F) this.focusObject(this.model, true);
   }
 
   private createScene(canvas: ElementRef<HTMLCanvasElement>): void {
@@ -109,7 +118,10 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.rotateSpeed = 1.5;
-    this.controls.zoomSpeed = 2;
+    this.controls.panSpeed = 1.5;
+    this.controls.zoomSpeed = 3;
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.1;
 
     this.composer = new EffectComposer(this.renderer);
     var renderPass = new RenderPass(this.scene, this.camera);
