@@ -47,4 +47,6 @@ Thumbs.db
 
 scene.bin
 scene.gltf
-**/assets/*/**
+**/assets/textures
+**/assets/*.gltf
+**/assets/*.bin
