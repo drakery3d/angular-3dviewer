@@ -5,28 +5,26 @@ import {
   NgZone,
   OnDestroy,
   AfterViewInit,
+  HostListener,
 } from '@angular/core';
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-// import { OrbitControls } from './OrbitControlsModified';
-import { OrbitControls } from './controls';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
-// import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass';
-// import { SAOPass } from 'three/examples/jsm/postprocessing/SAOPass';
-// import { HorizontalBlurShader } from 'three/examples/jsm/shaders/HorizontalBlurShader';
-// import { VerticalBlurShader } from 'three/examples/jsm/shaders/VerticalBlurShader';
-// import { EffectPass } from 'postprocessing';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
+import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
+import {FXAAShader} from 'three/examples/jsm/shaders/FXAAShader';
+import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
+import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass';
+
+import {OrbitControls} from './controls';
 
 @Component({
   selector: 'app-viewer',
   template: `
-    <div class="engine-wrapper">
-      <canvas #rendererCanvas id="renderCanvas"></canvas>
+    <div class="container">
+      <div class="loader" *ngIf="loading"><h1>Loading</h1></div>
+      <div class="wrapper">
+        <canvas #rendererCanvas id="renderCanvas"></canvas>
+      </div>
     </div>
   `,
   styles: [
@@ -34,12 +32,20 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
       canvas {
         cursor: grab;
       }
+      .container {
+        position: relative;
+      }
+      .loader {
+        position: absolute;
+        top: 0;
+        margin: 20px;
+      }
     `,
   ],
 })
 export class ViewerComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('rendererCanvas', { static: false })
-  renderCanvas: ElementRef<HTMLCanvasElement>;
+  @ViewChild('rendererCanvas', {static: false})
+  private renderCanvas: ElementRef<HTMLCanvasElement>;
 
   private canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
@@ -50,6 +56,9 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private fxaaPass: ShaderPass;
 
   private frameId: number = null;
+  private model;
+
+  loading = true;
 
   constructor(private ngZone: NgZone) {}
 
@@ -69,10 +78,15 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  createScene(canvas: ElementRef<HTMLCanvasElement>): void {
+  @HostListener('document:keypress', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) {
+    if (event.keyCode === 114) this.focusObject(this.model, true);
+  }
+
+  private createScene(canvas: ElementRef<HTMLCanvasElement>): void {
     this.canvas = canvas.nativeElement;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas });
+    this.renderer = new THREE.WebGLRenderer({canvas: this.canvas});
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = true;
@@ -80,16 +94,15 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.renderer.toneMappingExposure = 2.2;
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setClearColor(0xffffff, 1);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xffffff);
-
+    // this.scene.background = new THREE.Color(0xffffff);
+    this.scene.background = new THREE.Color(0x111111);
     this.camera = new THREE.PerspectiveCamera(
-      75,
+      30,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      1000,
     );
 
     this.scene.add(this.camera);
@@ -102,23 +115,6 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     var renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    /* const saoPass = new SAOPass(this.scene, this.camera, false, true);
-    saoPass.params.saoBias = 1;
-    saoPass.params.saoIntensity = 0.1;
-    saoPass.params.saoScale = 20;
-    saoPass.params.saoKernelRadius = 20;
-    this.composer.addPass(saoPass); */
-    /* const ssaoPass = new SSAOPass(
-      this.scene,
-      this.camera,
-      window.innerWidth,
-      window.innerHeight
-    );
-    ssaoPass.kernelRadius = 16;
-    ssaoPass.minDistance = 0.01;
-    ssaoPass.maxDistance = 1;
-    this.composer.addPass(ssaoPass); */
-
     this.fxaaPass = new ShaderPass(FXAAShader);
     var pixelRatio = this.renderer.getPixelRatio();
     this.fxaaPass.material.uniforms['resolution'].value.x =
@@ -129,31 +125,10 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   }
 
   private createTestScene() {
-    new GLTFLoader().load('assets/scene.gltf', (result) => {
-      const model = result.scene.children[0];
-      model.scale.set(10, 10, 10);
-      model.traverse((obj) => {
-        if ((obj as any).isMesh) {
-          (obj as any).material.clearcoat = 1;
-
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-          if ((obj as any).material.map) {
-            (obj as any).material.map.anisotropy = 16;
-          }
-        }
-      });
-
-      this.scene.add(model);
-      var bb = new THREE.Box3();
-      bb.setFromObject(model);
-      bb.getCenter(this.controls.target);
-      this.camera.position.y = 10;
-      this.camera.position.z = 20;
-    });
+    this.loadGltfModel('Astronaut.glb');
 
     const light = new THREE.DirectionalLight(0xdfebff, 5);
-    light.shadow.bias = -0.0001;
+    /* light.shadow.bias = -0.0001;
     light.position.set(300, 400, 50);
     light.castShadow = true;
     light.shadow.radius = 1;
@@ -164,16 +139,13 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     light.shadow.camera.right = d;
     light.shadow.camera.top = d;
     light.shadow.camera.bottom = -d;
-    light.shadow.camera.far = 1000;
+    light.shadow.camera.far = 1000; */
     this.scene.add(light);
 
     var groundMaterial = new THREE.ShadowMaterial({
       color: 0xffffff,
     });
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(500, 500),
-      groundMaterial
-    );
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMaterial);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     this.scene.add(plane);
@@ -181,12 +153,12 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.scene.add(new THREE.AmbientLight(0x666666, 1.5));
   }
 
-  render(): void {
+  private render() {
     this.frameId = requestAnimationFrame(() => this.render());
     this.composer.render();
   }
 
-  resize(): void {
+  private resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
@@ -202,5 +174,49 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       1 / (this.canvas.offsetWidth * pixelRatio);
     this.fxaaPass.material.uniforms['resolution'].value.y =
       1 / (this.canvas.offsetHeight * pixelRatio);
+  }
+
+  private loadGltfModel(path: string) {
+    new GLTFLoader().load(`assets/${path}`, result => {
+      this.model = result.scene.children[0];
+      this.model.traverse(obj => {
+        if ((obj as any).isMesh) {
+          (obj as any).material.clearcoat = 1;
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+      this.loading = false;
+      this.scene.add(this.model);
+      this.focusObject(this.model);
+    });
+  }
+
+  private focusObject(object: THREE.Mesh, maintainAngle = false) {
+    const box = new THREE.Box3();
+    box.expandByObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxSize = Math.max(size.x, size.y, size.z);
+    const fitHeightDistance = maxSize / (2 * Math.atan((Math.PI * this.camera.fov) / 360));
+    const fitWidthDistance = fitHeightDistance / this.camera.aspect;
+    const distance = Math.max(fitHeightDistance, fitWidthDistance);
+
+    const direction = new THREE.Vector3(0, 0, -1)
+      .clone()
+      .sub(maintainAngle ? this.camera.position : new THREE.Vector3())
+      .normalize()
+      .multiplyScalar(distance);
+
+    this.controls.maxDistance = distance * 10;
+    this.controls.target.copy(center);
+
+    this.camera.near = distance / 100;
+    this.camera.far = distance * 100;
+    this.camera.updateProjectionMatrix();
+    this.camera.position.copy(this.controls.target).sub(direction);
+
+    this.controls.update();
   }
 }
