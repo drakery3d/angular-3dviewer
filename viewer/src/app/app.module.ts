@@ -2,10 +2,10 @@ import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 
 import { AppComponent } from './app.component';
-import { EngineComponent } from './engine/engine.component';
+import { ViewerComponent } from './viewer.component';
 
 @NgModule({
-  declarations: [AppComponent, EngineComponent],
+  declarations: [AppComponent, ViewerComponent],
   imports: [BrowserModule],
   providers: [],
   bootstrap: [AppComponent],
