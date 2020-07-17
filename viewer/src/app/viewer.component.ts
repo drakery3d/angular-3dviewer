@@ -14,10 +14,11 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass';
+import { SAOPass } from 'three/examples/jsm/postprocessing/SAOPass';
 // import { HorizontalBlurShader } from 'three/examples/jsm/shaders/HorizontalBlurShader';
 // import { VerticalBlurShader } from 'three/examples/jsm/shaders/VerticalBlurShader';
 // import { EffectPass } from 'postprocessing';
-// import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass';
 
 @Component({
   selector: 'app-viewer',
@@ -71,6 +72,8 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas });
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = true;
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
     this.renderer.toneMappingExposure = 2.2;
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -97,6 +100,23 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     var renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
+    /* const saoPass = new SAOPass(this.scene, this.camera, false, true);
+    saoPass.params.saoBias = 1;
+    saoPass.params.saoIntensity = 0.1;
+    saoPass.params.saoScale = 20;
+    saoPass.params.saoKernelRadius = 20;
+    this.composer.addPass(saoPass); */
+    /* const ssaoPass = new SSAOPass(
+      this.scene,
+      this.camera,
+      window.innerWidth,
+      window.innerHeight
+    );
+    ssaoPass.kernelRadius = 16;
+    ssaoPass.minDistance = 0.01;
+    ssaoPass.maxDistance = 1;
+    this.composer.addPass(ssaoPass); */
+
     this.fxaaPass = new ShaderPass(FXAAShader);
     var pixelRatio = this.renderer.getPixelRatio();
     this.fxaaPass.material.uniforms['resolution'].value.x =
@@ -109,9 +129,11 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private createTestScene() {
     new GLTFLoader().load('assets/Astronaut.glb', (result) => {
       const model = result.scene.children[0];
-      model.scale.set(100, 100, 100);
+      model.scale.set(10, 10, 10);
       model.traverse((obj) => {
         if ((obj as any).isMesh) {
+          (obj as any).material.clearcoat = 1;
+
           obj.castShadow = true;
           obj.receiveShadow = true;
           if ((obj as any).material.map) {
@@ -124,16 +146,17 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       var bb = new THREE.Box3();
       bb.setFromObject(model);
       bb.getCenter(this.controls.target);
-      this.camera.position.y = 100;
-      this.camera.position.z = 200;
+      this.camera.position.y = 10;
+      this.camera.position.z = 20;
     });
 
-    const light = new THREE.DirectionalLight(0xdfebff, 4);
+    const light = new THREE.DirectionalLight(0xdfebff, 5);
+    light.shadow.bias = -0.0001;
     light.position.set(300, 400, 50);
-    light.position.multiplyScalar(1.3);
     light.castShadow = true;
-    light.shadow.mapSize.width = 2 ** 10;
-    light.shadow.mapSize.height = 2 ** 10;
+    light.shadow.radius = 1;
+    light.shadow.mapSize.width = 2 ** 12; // 4k
+    light.shadow.mapSize.height = 2 ** 12; // 4k
     const d = 200;
     light.shadow.camera.left = -d;
     light.shadow.camera.right = d;
@@ -153,13 +176,12 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     plane.receiveShadow = true;
     this.scene.add(plane);
 
-    this.scene.add(new THREE.AmbientLight(0x666666, 1));
+    this.scene.add(new THREE.AmbientLight(0x666666, 1.5));
   }
 
   render(): void {
     this.frameId = requestAnimationFrame(() => this.render());
     this.composer.render();
-    // this.renderer.render(this.scene, this.camera);
   }
 
   resize(): void {
