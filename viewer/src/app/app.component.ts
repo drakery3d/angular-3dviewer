@@ -2,9 +2,6 @@ import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  template: `<app-viewer></app-viewer>`,
 })
-export class AppComponent {
-  title = 'viewer';
-}
+export class AppComponent {}
