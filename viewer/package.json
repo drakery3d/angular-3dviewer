@@ -19,7 +19,6 @@
     "@angular/platform-browser": "~10.0.4",
     "@angular/platform-browser-dynamic": "~10.0.4",
     "@angular/router": "~10.0.4",
-    "postprocessing": "^6.16.0",
     "rxjs": "~6.5.5",
     "three": "^0.118.3",
     "three-full": "^28.0.2",
