@@ -30,7 +30,7 @@ import {VirtualTimeScheduler} from 'rxjs';
         <button (click)="setWireframe()">Wireframe</button>
       </div>
       <div class="wrapper">
-        <canvas #rendererCanvas id="renderCanvas"></canvas>
+        <canvas #rendererCanvas id="renderCanvas" [class.grabbing]="grabbing"></canvas>
       </div>
     </div>
   `,
@@ -38,6 +38,9 @@ import {VirtualTimeScheduler} from 'rxjs';
     `
       canvas {
         cursor: grab;
+      }
+      .grabbing {
+        cursor: grabbing;
       }
       .container {
         position: relative;
@@ -78,6 +81,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private wireframeGroup: THREE.Group | undefined;
 
   loading = true;
+  grabbing = false;
 
   constructor(private ngZone: NgZone) {}
 
@@ -111,10 +115,20 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     if (event.keyCode === Keys.F) this.focusObject(this.model, true);
   }
 
+  @HostListener('document:mouseup')
+  mouseUp() {
+    this.grabbing = false;
+  }
+
+  @HostListener('document:mousedown')
+  mouseDown() {
+    this.grabbing = true;
+  }
+
   private createScene(canvas: ElementRef<HTMLCanvasElement>): void {
     this.canvas = canvas.nativeElement;
 
-    this.renderer = new THREE.WebGLRenderer({canvas: this.canvas});
+    this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = true;
@@ -128,11 +142,10 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.scene.background = new THREE.Color(0x111111);
     this.camera = new THREE.PerspectiveCamera(
       30,
-      window.innerWidth / window.innerHeight,
+      this.canvas.offsetWidth / this.canvas.offsetHeight,
       0.1,
       1000,
     );
-
     this.scene.add(this.camera);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -143,15 +156,13 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.controls.dampingFactor = 0.1;
 
     this.composer = new EffectComposer(this.renderer);
-    var renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
-
+    const renderPass = new RenderPass(this.scene, this.camera);
     this.fxaaPass = new ShaderPass(FXAAShader);
-    var pixelRatio = this.renderer.getPixelRatio();
-    this.fxaaPass.material.uniforms['resolution'].value.x =
-      1 / (this.canvas.offsetWidth * pixelRatio);
-    this.fxaaPass.material.uniforms['resolution'].value.y =
-      1 / (this.canvas.offsetHeight * pixelRatio);
+    const pixelRatio = this.renderer.getPixelRatio();
+    const uniforms = this.fxaaPass.material.uniforms;
+    uniforms['resolution'].value.x = 1 / (this.canvas.offsetWidth * pixelRatio);
+    uniforms['resolution'].value.y = 1 / (this.canvas.offsetHeight * pixelRatio);
+    this.composer.addPass(renderPass);
     this.composer.addPass(this.fxaaPass);
   }
 
@@ -185,6 +196,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private render() {
     this.frameId = requestAnimationFrame(() => this.render());
     this.composer.render();
+    // this.renderer.render(this.scene, this.camera);
   }
 
   private resize() {
@@ -197,8 +209,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
 
-    var pixelRatio = this.renderer.getPixelRatio();
-
+    const pixelRatio = this.renderer.getPixelRatio();
     this.fxaaPass.material.uniforms['resolution'].value.x =
       1 / (this.canvas.offsetWidth * pixelRatio);
     this.fxaaPass.material.uniforms['resolution'].value.y =
@@ -243,12 +254,11 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       if (!child.isMesh) return 1;
       this.geometry = child.geometry;
     });
-    console.log(this.geometry);
     const mat = new THREE.LineBasicMaterial({
       color: 0x000000,
       linewidth: 2,
     });
-    var geo = new THREE.WireframeGeometry(this.geometry);
+    const geo = new THREE.WireframeGeometry(this.geometry);
     this.wireframeGroup = new THREE.Group();
     const wireframe = new THREE.LineSegments(geo, mat);
     this.wireframeGroup.add(wireframe);
