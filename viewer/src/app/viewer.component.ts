@@ -71,7 +71,6 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas });
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
     this.renderer.toneMappingExposure = 2.2;
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -81,18 +80,12 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xffffff);
 
-    const hemiLight = new THREE.HemisphereLight();
-    hemiLight.intensity = 3;
-    hemiLight.castShadow = true;
-    this.scene.add(hemiLight);
-
     this.camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.camera.position.set(0, 3, 3);
 
     this.scene.add(this.camera);
 
@@ -114,24 +107,9 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   }
 
   private createTestScene() {
-    const planeGeometry = new THREE.PlaneGeometry(10, 10);
-    planeGeometry.rotateX(-Math.PI / 2);
-    const planeMaterial = new THREE.ShadowMaterial({ color: 0xdddddd });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.receiveShadow = true;
-    this.scene.add(plane);
-
-    const boxGeometry = new THREE.BoxGeometry();
-    const boxMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x11687a,
-    });
-    const cube = new THREE.Mesh(boxGeometry, boxMaterial);
-    cube.receiveShadow = true;
-    cube.castShadow = true;
-    this.scene.add(cube);
-    /* new GLTFLoader().load('assets/Astronaut.glb', (result) => {
+    new GLTFLoader().load('assets/Astronaut.glb', (result) => {
       const model = result.scene.children[0];
-      model.scale.set(10, 10, 10);
+      model.scale.set(100, 100, 100);
       model.traverse((obj) => {
         if ((obj as any).isMesh) {
           obj.castShadow = true;
@@ -142,17 +120,46 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
         }
       });
 
+      this.scene.add(model);
       var bb = new THREE.Box3();
       bb.setFromObject(model);
       bb.getCenter(this.controls.target);
+      this.camera.position.y = 100;
+      this.camera.position.z = 200;
+    });
 
-      this.scene.add(model);
-    }); */
+    const light = new THREE.DirectionalLight(0xdfebff, 4);
+    light.position.set(300, 400, 50);
+    light.position.multiplyScalar(1.3);
+    light.castShadow = true;
+    light.shadow.mapSize.width = 2 ** 10;
+    light.shadow.mapSize.height = 2 ** 10;
+    const d = 200;
+    light.shadow.camera.left = -d;
+    light.shadow.camera.right = d;
+    light.shadow.camera.top = d;
+    light.shadow.camera.bottom = -d;
+    light.shadow.camera.far = 1000;
+    this.scene.add(light);
+
+    var groundMaterial = new THREE.ShadowMaterial({
+      color: 0xffffff,
+    });
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(500, 500),
+      groundMaterial
+    );
+    plane.rotation.x = -Math.PI / 2;
+    plane.receiveShadow = true;
+    this.scene.add(plane);
+
+    this.scene.add(new THREE.AmbientLight(0x666666, 1));
   }
 
   render(): void {
     this.frameId = requestAnimationFrame(() => this.render());
     this.composer.render();
+    // this.renderer.render(this.scene, this.camera);
   }
 
   resize(): void {
