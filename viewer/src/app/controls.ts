@@ -77,8 +77,6 @@ class Controls extends EventDispatcher {
   constructor(private object: PerspectiveCamera, private domElement: HTMLElement) {
     super();
 
-    console.log(object);
-
     this.domElement.addEventListener('contextmenu', this.onContextMenu.bind(this), false);
     this.domElement.addEventListener('mousedown', this.onMouseDown.bind(this), false);
     this.domElement.addEventListener('wheel', this.onMouseWheel.bind(this), false);

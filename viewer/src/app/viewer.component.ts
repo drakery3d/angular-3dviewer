@@ -18,12 +18,17 @@ import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass';
 
 // import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import {OrbitControls} from './controls';
+import {VirtualTimeScheduler} from 'rxjs';
 
 @Component({
   selector: 'app-viewer',
   template: `
     <div class="container">
       <div class="loader" *ngIf="loading"><h1>Loading</h1></div>
+      <div class="gui" *ngIf="!loading">
+        <button (click)="setFullRender()">Full</button>
+        <button (click)="setWireframe()">Wireframe</button>
+      </div>
       <div class="wrapper">
         <canvas #rendererCanvas id="renderCanvas"></canvas>
       </div>
@@ -42,6 +47,16 @@ import {OrbitControls} from './controls';
         top: 0;
         margin: 20px;
       }
+      .gui {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        background: white;
+        height: 40px;
+        display: flex;
+        flex-direction: row;
+      }
     `,
   ],
 })
@@ -58,7 +73,9 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private fxaaPass: ShaderPass;
 
   private frameId: number = null;
-  private model;
+  private model: THREE.Object3D;
+  private geometry: THREE.Geometry | undefined;
+  private wireframeGroup: THREE.Group | undefined;
 
   loading = true;
 
@@ -66,6 +83,8 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     this.createScene(this.renderCanvas);
+    // this.loadGltfModel('Astronaut.glb');
+    this.loadGltfModel('wooden-buddha.glb');
     this.createTestScene();
 
     this.ngZone.runOutsideAngular(() => {
@@ -137,8 +156,6 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   }
 
   private createTestScene() {
-    this.loadGltfModel('Astronaut.glb');
-
     const light = new THREE.DirectionalLight(0xdfebff, 5);
     /* light.shadow.bias = -0.0001;
     light.position.set(300, 400, 50);
@@ -162,7 +179,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     plane.receiveShadow = true;
     this.scene.add(plane);
 
-    this.scene.add(new THREE.AmbientLight(0x666666, 1.5));
+    this.scene.add(new THREE.AmbientLight(0x666666, 3));
   }
 
   private render() {
@@ -193,18 +210,55 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       this.model = result.scene.children[0];
       this.model.traverse(obj => {
         if ((obj as any).isMesh) {
-          (obj as any).material.clearcoat = 1;
           obj.castShadow = true;
           obj.receiveShadow = true;
         }
       });
       this.loading = false;
-      this.scene.add(this.model);
       this.focusObject(this.model);
+      this.setFullRender();
     });
   }
 
-  private focusObject(object: THREE.Mesh, maintainAngle = false) {
+  private clearScene() {
+    if (this.wireframeGroup) this.scene.remove(this.wireframeGroup);
+    if (this.model) this.scene.remove(this.model);
+  }
+
+  setFullRender() {
+    this.clearScene();
+    this.scene.add(this.model);
+  }
+
+  setWireframe() {
+    this.clearScene();
+
+    if (this.wireframeGroup) {
+      this.scene.add(this.wireframeGroup);
+      return;
+    }
+
+    // TODO apply transformations of parent objects to ensure same transforms as scene
+    this.model.traverse((child: any) => {
+      if (!child.isMesh) return 1;
+      this.geometry = child.geometry;
+    });
+    console.log(this.geometry);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      linewidth: 2,
+    });
+    var geo = new THREE.WireframeGeometry(this.geometry);
+    this.wireframeGroup = new THREE.Group();
+    const wireframe = new THREE.LineSegments(geo, mat);
+    this.wireframeGroup.add(wireframe);
+    const solid = new THREE.MeshBasicMaterial({color: 0xffffff});
+    const base = new THREE.Mesh(this.geometry, solid);
+    this.wireframeGroup.add(base);
+    this.scene.add(this.wireframeGroup);
+  }
+
+  private focusObject(object: THREE.Object3D, maintainAngle = false) {
     const box = new THREE.Box3();
     box.expandByObject(object);
     const size = box.getSize(new THREE.Vector3());
