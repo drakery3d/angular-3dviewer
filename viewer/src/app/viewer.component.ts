@@ -2,6 +2,8 @@ import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@an
 
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
+import {FaceNormalsHelper} from 'three/examples/jsm/helpers/FaceNormalsHelper';
+import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper';
 
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
@@ -19,6 +21,7 @@ import {FullscreenService} from './fullscreen.service';
         <button (click)="setRoughness()">Roughness</button>
         <button (click)="setMetallic()">Metallic</button>
         <button (click)="setAO()">AO</button>
+        <button (click)="setFaceNormals()">Face Normals</button>
         <button (click)="toggleFullScreen()">Fullscreen</button>
       </div>
       <div class="wrapper">
@@ -60,6 +63,7 @@ export class ViewerComponent implements AfterViewInit {
   private renderCanvas: ElementRef<HTMLCanvasElement>;
 
   private model: THREE.Mesh;
+  private mesh: THREE.Mesh;
   private geometry: THREE.Geometry | undefined;
   private wireframeGroup: THREE.Group | undefined;
   private albedoModel: THREE.Mesh;
@@ -67,6 +71,7 @@ export class ViewerComponent implements AfterViewInit {
   private roughnessModel: THREE.Mesh;
   private aoModel: THREE.Mesh;
   private metallicModel: THREE.Mesh;
+  private faceNormals: THREE.Group;
 
   private clearColor = new THREE.Color(0xffffff);
 
@@ -78,8 +83,8 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
     this.engineService.setBackground(this.clearColor);
-    // this.loadGltfModel('wooden-buddha.glb');
-    this.loadGltfModel('Astronaut.glb');
+    this.loadGltfModel('wooden-buddha.glb');
+    // this.loadGltfModel('Astronaut.glb');
     this.createTestScene();
   }
 
@@ -127,13 +132,19 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   private loadGltfModel(path: string) {
-    new GLTFLoader().load(`assets/${path}`, result => {
-      result.scene.children[0].traverse(obj => {
+    new GLTFLoader().load(`assets/${path}`, gltf => {
+      this.mesh = gltf.scene.children[0] as THREE.Mesh;
+      this.mesh.traverse(obj => {
         if ((obj as any).isMesh) {
           obj.castShadow = true;
           obj.receiveShadow = true;
           this.model = obj as THREE.Mesh;
         }
+      });
+      // TODO apply transformations of parent objects to ensure same transforms as scene
+      this.model.traverse((child: any) => {
+        if (!child.isMesh) return;
+        this.geometry = child.geometry;
       });
       this.loading = false;
       this.engineService.focusObject(this.model);
@@ -150,6 +161,7 @@ export class ViewerComponent implements AfterViewInit {
     if (this.metallicModel) this.engineService.scene.remove(this.metallicModel);
     if (this.aoModel) this.engineService.scene.remove(this.aoModel);
     if (this.metallicModel) this.engineService.scene.remove(this.metallicModel);
+    if (this.faceNormals) this.engineService.scene.remove(this.faceNormals);
   }
 
   toggleFullScreen() {
@@ -264,11 +276,6 @@ export class ViewerComponent implements AfterViewInit {
       return;
     }
 
-    // TODO apply transformations of parent objects to ensure same transforms as scene
-    this.model.traverse((child: any) => {
-      if (!child.isMesh) return;
-      this.geometry = child.geometry;
-    });
     const mat = new THREE.LineBasicMaterial({
       color: 0x000000,
       linewidth: 1,
@@ -284,5 +291,28 @@ export class ViewerComponent implements AfterViewInit {
     const base = new THREE.Mesh(this.geometry, solid);
     this.wireframeGroup.add(base);
     this.engineService.scene.add(this.wireframeGroup);
+  }
+
+  // TODO doesn't work on every model
+  setFaceNormals() {
+    this.clearScene();
+
+    this.faceNormals = new THREE.Group();
+    this.faceNormals.add(this.model);
+    // TODO how to calc size of helper lines?
+    const size = 0.003;
+    this.faceNormals.add(new VertexNormalsHelper(this.mesh, size, 0x000000));
+    // TODO face normals don't work (only vetex normals) (this.geometry doesn't have faces properrt)
+    // this.faceNormals.add(new FaceNormalsHelper(this.geometry, 0.003));
+
+    const geo = new THREE.WireframeGeometry(this.geometry);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x000000,
+      linewidth: 1,
+    });
+    const wireframe = new THREE.LineSegments(geo, mat);
+    this.faceNormals.add(wireframe);
+
+    this.engineService.scene.add(this.faceNormals);
   }
 }
