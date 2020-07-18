@@ -19,6 +19,7 @@ import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass';
 // import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import {OrbitControls} from './controls';
 import {VirtualTimeScheduler} from 'rxjs';
+import {FullscreenService} from './fullscreen.service';
 
 @Component({
   selector: 'app-viewer',
@@ -28,6 +29,7 @@ import {VirtualTimeScheduler} from 'rxjs';
       <div class="gui" *ngIf="!loading">
         <button (click)="setFullRender()">Full</button>
         <button (click)="setWireframe()">Wireframe</button>
+        <button (click)="toggleFullScreen()">Fullscreen</button>
       </div>
       <div class="wrapper">
         <canvas #rendererCanvas id="renderCanvas" [class.grabbing]="grabbing"></canvas>
@@ -83,7 +85,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   loading = true;
   grabbing = false;
 
-  constructor(private ngZone: NgZone) {}
+  constructor(private ngZone: NgZone, private fullscreenService: FullscreenService) {}
 
   ngAfterViewInit() {
     this.createScene(this.renderCanvas);
@@ -234,6 +236,10 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
   private clearScene() {
     if (this.wireframeGroup) this.scene.remove(this.wireframeGroup);
     if (this.model) this.scene.remove(this.model);
+  }
+
+  toggleFullScreen() {
+    this.fullscreenService.toggle();
   }
 
   setFullRender() {
