@@ -78,13 +78,13 @@ class Controls extends EventDispatcher {
   constructor(private object: PerspectiveCamera, private domElement: HTMLElement) {
     super();
 
-    this.domElement.addEventListener('contextmenu', this.onContextMenu.bind(this), false);
-    this.domElement.addEventListener('mousedown', this.onMouseDown.bind(this), false);
-    this.domElement.addEventListener('wheel', this.onMouseWheel.bind(this), false);
-    this.domElement.addEventListener('touchstart', this.onTouchStart.bind(this), false);
-    this.domElement.addEventListener('touchend', this.onTouchEnd.bind(this), false);
-    this.domElement.addEventListener('touchmove', this.onTouchMove.bind(this), false);
-    this.domElement.addEventListener('keydown', this.onKeyDown.bind(this), false);
+    this.domElement.addEventListener('contextmenu', e => this.onContextMenu(e), false);
+    this.domElement.addEventListener('mousedown', e => this.onMouseDown(e), false);
+    this.domElement.addEventListener('wheel', e => this.onMouseWheel(e), false);
+    this.domElement.addEventListener('touchstart', e => this.onTouchStart(e), false);
+    this.domElement.addEventListener('touchend', e => this.onTouchEnd(e), false);
+    this.domElement.addEventListener('touchmove', e => this.onTouchMove(e), false);
+    this.domElement.addEventListener('keydown', e => this.onKeyDown(e), false);
 
     if (this.domElement.tabIndex === -1) {
       this.domElement.tabIndex = 0;
@@ -118,19 +118,15 @@ class Controls extends EventDispatcher {
   }
 
   dispose() {
-    this.domElement.removeEventListener('contextmenu', this.onContextMenu.bind(this), false);
-    this.domElement.removeEventListener('mousedown', this.onMouseDown.bind(this), false);
-    this.domElement.removeEventListener('wheel', this.onMouseWheel.bind(this), false);
-    this.domElement.removeEventListener('touchstart', this.onTouchStart.bind(this), false);
-    this.domElement.removeEventListener('touchend', this.onTouchEnd.bind(this), false);
-    this.domElement.removeEventListener('touchmove', this.onTouchMove.bind(this), false);
-    this.domElement.ownerDocument.removeEventListener(
-      'mousemove',
-      this.onMouseMove.bind(this),
-      false,
-    );
-    this.domElement.ownerDocument.removeEventListener('mouseup', this.onMouseUp.bind(this), false);
-    this.domElement.removeEventListener('keydown', this.onKeyDown.bind(this), false);
+    this.domElement.removeEventListener('contextmenu', e => this.onContextMenu(e), false);
+    this.domElement.removeEventListener('mousedown', e => this.onMouseDown(e), false);
+    this.domElement.removeEventListener('wheel', e => this.onMouseWheel(e), false);
+    this.domElement.removeEventListener('touchstart', e => this.onTouchStart(e), false);
+    this.domElement.removeEventListener('touchend', e => this.onTouchEnd(e), false);
+    this.domElement.removeEventListener('touchmove', e => this.onTouchMove(e), false);
+    this.domElement.ownerDocument.removeEventListener('mousemove', e => this.onMouseMove(e), false);
+    this.domElement.ownerDocument.removeEventListener('mouseup', e => this.onMouseUp(e), false);
+    this.domElement.removeEventListener('keydown', e => this.onKeyDown(e), false);
 
     //this.dispatchEvent( { type: 'dispose' } ); // should this be added here?
   }
@@ -598,12 +594,8 @@ class Controls extends EventDispatcher {
     }
 
     if (this.state !== this.STATE.NONE) {
-      this.domElement.ownerDocument.addEventListener(
-        'mousemove',
-        this.onMouseMove.bind(this),
-        false,
-      );
-      this.domElement.ownerDocument.addEventListener('mouseup', this.onMouseUp.bind(this), false);
+      this.domElement.ownerDocument.addEventListener('mousemove', e => this.onMouseMove(e), false);
+      this.domElement.ownerDocument.addEventListener('mouseup', e => this.onMouseUp(e), false);
       this.dispatchEvent(this.startEvent);
     }
   }
@@ -634,12 +626,8 @@ class Controls extends EventDispatcher {
   private onMouseUp(event) {
     if (this.enabled === false) return;
     this.handleMouseUp();
-    this.domElement.ownerDocument.removeEventListener(
-      'mousemove',
-      this.onMouseMove.bind(this),
-      false,
-    );
-    this.domElement.ownerDocument.removeEventListener('mouseup', this.onMouseUp.bind(this), false);
+    this.domElement.ownerDocument.removeEventListener('mousemove', e => this.onMouseMove(e), false);
+    this.domElement.ownerDocument.removeEventListener('mouseup', e => this.onMouseUp(e), false);
     this.dispatchEvent(this.endEvent);
     this.state = this.STATE.NONE;
   }
