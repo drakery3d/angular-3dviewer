@@ -14,6 +14,11 @@ import {FullscreenService} from './fullscreen.service';
       <div class="gui" *ngIf="!loading">
         <button (click)="setFullRender()">Full</button>
         <button (click)="setWireframe()">Wireframe</button>
+        <button (click)="setAlbedo()">Albedo</button>
+        <button (click)="setNormal()">Normal</button>
+        <button (click)="setRoughness()">Roughness</button>
+        <button (click)="setMetallic()">Metallic</button>
+        <button (click)="setAO()">AO</button>
         <button (click)="toggleFullScreen()">Fullscreen</button>
       </div>
       <div class="wrapper">
@@ -54,9 +59,16 @@ export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
 
-  private model: THREE.Object3D;
+  private model: THREE.Mesh;
   private geometry: THREE.Geometry | undefined;
   private wireframeGroup: THREE.Group | undefined;
+  private albedoModel: THREE.Mesh;
+  private normalModel: THREE.Mesh;
+  private roughnessModel: THREE.Mesh;
+  private aoModel: THREE.Mesh;
+  private metallicModel: THREE.Mesh;
+
+  private clearColor = new THREE.Color(0xffffff);
 
   loading = true;
 
@@ -65,7 +77,9 @@ export class ViewerComponent implements AfterViewInit {
   ngAfterViewInit() {
     this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
-    this.loadGltfModel('wooden-buddha.glb');
+    this.engineService.setBackground(this.clearColor);
+    // this.loadGltfModel('wooden-buddha.glb');
+    this.loadGltfModel('Astronaut.glb');
     this.createTestScene();
   }
 
@@ -114,11 +128,11 @@ export class ViewerComponent implements AfterViewInit {
 
   private loadGltfModel(path: string) {
     new GLTFLoader().load(`assets/${path}`, result => {
-      this.model = result.scene.children[0];
-      this.model.traverse(obj => {
+      result.scene.children[0].traverse(obj => {
         if ((obj as any).isMesh) {
           obj.castShadow = true;
           obj.receiveShadow = true;
+          this.model = obj as THREE.Mesh;
         }
       });
       this.loading = false;
@@ -130,6 +144,12 @@ export class ViewerComponent implements AfterViewInit {
   private clearScene() {
     if (this.wireframeGroup) this.engineService.scene.remove(this.wireframeGroup);
     if (this.model) this.engineService.scene.remove(this.model);
+    if (this.albedoModel) this.engineService.scene.remove(this.albedoModel);
+    if (this.normalModel) this.engineService.scene.remove(this.normalModel);
+    if (this.roughnessModel) this.engineService.scene.remove(this.roughnessModel);
+    if (this.metallicModel) this.engineService.scene.remove(this.metallicModel);
+    if (this.aoModel) this.engineService.scene.remove(this.aoModel);
+    if (this.metallicModel) this.engineService.scene.remove(this.metallicModel);
   }
 
   toggleFullScreen() {
@@ -139,6 +159,101 @@ export class ViewerComponent implements AfterViewInit {
   setFullRender() {
     this.clearScene();
     this.engineService.scene.add(this.model);
+  }
+
+  setAlbedo() {
+    this.clearScene();
+    if (this.albedoModel) {
+      this.engineService.scene.add(this.albedoModel);
+      return;
+    }
+
+    this.albedoModel = this.model.clone();
+    const fullMaterial = this.albedoModel.material as THREE.MeshPhysicalMaterial;
+    const material = new THREE.MeshBasicMaterial({
+      color: fullMaterial.color,
+      map: fullMaterial.map,
+    });
+    this.albedoModel.material = material;
+    this.engineService.scene.add(this.albedoModel);
+  }
+
+  setNormal() {
+    this.clearScene();
+    if (this.normalModel) {
+      this.engineService.scene.add(this.normalModel);
+      return;
+    }
+
+    this.normalModel = this.model.clone();
+    const fullMaterial = this.normalModel.material as THREE.MeshPhysicalMaterial;
+    //  TODO colors are not really accurate yet
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x615ced,
+      map: fullMaterial.normalMap,
+    });
+    /* const normalLaterial = new THREE.MeshNormalMaterial({
+      displacementScale: 2.436143,
+      displacementBias: -0.428408,
+      normalMap: fullMaterial.normalMap,
+      normalScale: new THREE.Vector2(1, -1),
+      flatShading: true,
+      side: THREE.DoubleSide,
+    }); */
+    this.normalModel.material = material;
+    this.engineService.scene.add(this.normalModel);
+  }
+
+  setRoughness() {
+    this.clearScene();
+    if (this.roughnessModel) {
+      this.engineService.scene.add(this.roughnessModel);
+      return;
+    }
+
+    this.roughnessModel = this.model.clone();
+    const fullMaterial = this.roughnessModel.material as THREE.MeshPhysicalMaterial;
+    // TODO doens't work yet
+    const material = new THREE.MeshBasicMaterial({
+      color: fullMaterial.roughness,
+      map: fullMaterial.roughnessMap,
+    });
+    this.roughnessModel.material = material;
+    this.engineService.scene.add(this.roughnessModel);
+  }
+
+  setMetallic() {
+    this.clearScene();
+    if (this.metallicModel) {
+      this.engineService.scene.add(this.metallicModel);
+      return;
+    }
+
+    this.metallicModel = this.model.clone();
+    const fullMaterial = this.metallicModel.material as THREE.MeshPhysicalMaterial;
+    // TODO doens't work yet
+    const material = new THREE.MeshBasicMaterial({
+      color: fullMaterial.metalness,
+      map: fullMaterial.metalnessMap,
+    });
+    this.metallicModel.material = material;
+    this.engineService.scene.add(this.metallicModel);
+  }
+
+  setAO() {
+    this.clearScene();
+    if (this.aoModel) {
+      this.engineService.scene.add(this.aoModel);
+      return;
+    }
+
+    this.aoModel = this.model.clone();
+    const fullMaterial = this.aoModel.material as THREE.MeshPhysicalMaterial;
+    const material = new THREE.MeshBasicMaterial({
+      map: fullMaterial.aoMap,
+    });
+    this.aoModel.material = material;
+    this.engineService.scene.add(this.aoModel);
   }
 
   setWireframe() {
@@ -151,18 +266,21 @@ export class ViewerComponent implements AfterViewInit {
 
     // TODO apply transformations of parent objects to ensure same transforms as scene
     this.model.traverse((child: any) => {
-      if (!child.isMesh) return 1;
+      if (!child.isMesh) return;
       this.geometry = child.geometry;
     });
     const mat = new THREE.LineBasicMaterial({
       color: 0x000000,
-      linewidth: 2,
+      linewidth: 1,
     });
     const geo = new THREE.WireframeGeometry(this.geometry);
     this.wireframeGroup = new THREE.Group();
     const wireframe = new THREE.LineSegments(geo, mat);
     this.wireframeGroup.add(wireframe);
-    const solid = new THREE.MeshBasicMaterial({color: 0xffffff});
+    const solid = new THREE.MeshStandardMaterial({
+      color: this.clearColor.getHex(),
+      roughness: 1,
+    });
     const base = new THREE.Mesh(this.geometry, solid);
     this.wireframeGroup.add(base);
     this.engineService.scene.add(this.wireframeGroup);
