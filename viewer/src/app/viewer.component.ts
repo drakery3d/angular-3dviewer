@@ -1,24 +1,9 @@
-import {
-  Component,
-  ViewChild,
-  ElementRef,
-  NgZone,
-  OnDestroy,
-  AfterViewInit,
-  HostListener,
-  Host,
-} from '@angular/core';
+import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core';
 
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
-import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
-import {FXAAShader} from 'three/examples/jsm/shaders/FXAAShader';
-import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
-import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass';
 
-// import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
-import {OrbitControls} from './controls';
-import {VirtualTimeScheduler} from 'rxjs';
+import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
 
 @Component({
@@ -65,44 +50,23 @@ import {FullscreenService} from './fullscreen.service';
     `,
   ],
 })
-export class ViewerComponent implements AfterViewInit, OnDestroy {
+export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
 
-  private canvas: HTMLCanvasElement;
-  private renderer: THREE.WebGLRenderer;
-  private camera: THREE.PerspectiveCamera;
-  private scene: THREE.Scene;
-  private controls: OrbitControls;
-  private composer: EffectComposer;
-  private fxaaPass: ShaderPass;
-
-  private frameId: number = null;
   private model: THREE.Object3D;
   private geometry: THREE.Geometry | undefined;
   private wireframeGroup: THREE.Group | undefined;
 
   loading = true;
-  grabbing = false;
 
-  constructor(private ngZone: NgZone, private fullscreenService: FullscreenService) {}
+  constructor(private engineService: EngineService, private fullscreenService: FullscreenService) {}
 
   ngAfterViewInit() {
-    this.createScene(this.renderCanvas);
-    // this.loadGltfModel('Astronaut.glb');
+    this.engineService.createScene(this.renderCanvas);
+    this.engineService.animate();
     this.loadGltfModel('wooden-buddha.glb');
     this.createTestScene();
-
-    this.ngZone.runOutsideAngular(() => {
-      this.render();
-      window.addEventListener('resize', () => this.resize());
-    });
-  }
-
-  ngOnDestroy(): void {
-    if (this.frameId != null) {
-      cancelAnimationFrame(this.frameId);
-    }
   }
 
   @HostListener('document:keypress', ['$event'])
@@ -114,58 +78,11 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
       F = 102,
       S = 115,
     }
-    if (event.keyCode === Keys.F) this.focusObject(this.model, true);
+    if (event.keyCode === Keys.F) this.engineService.focusObject(this.model, true);
   }
 
-  @HostListener('document:mouseup')
-  mouseUp() {
-    this.grabbing = false;
-  }
-
-  @HostListener('document:mousedown')
-  mouseDown() {
-    this.grabbing = true;
-  }
-
-  private createScene(canvas: ElementRef<HTMLCanvasElement>): void {
-    this.canvas = canvas.nativeElement;
-
-    this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.shadowMap.autoUpdate = true;
-    this.renderer.toneMapping = THREE.ReinhardToneMapping;
-    this.renderer.toneMappingExposure = 2.2;
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-    this.scene = new THREE.Scene();
-    // this.scene.background = new THREE.Color(0xffffff);
-    this.scene.background = new THREE.Color(0x111111);
-    this.camera = new THREE.PerspectiveCamera(
-      30,
-      this.canvas.offsetWidth / this.canvas.offsetHeight,
-      0.1,
-      1000,
-    );
-    this.scene.add(this.camera);
-
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.rotateSpeed = 1.5;
-    this.controls.panSpeed = 1.5;
-    this.controls.zoomSpeed = 3;
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.1;
-
-    this.composer = new EffectComposer(this.renderer);
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.fxaaPass = new ShaderPass(FXAAShader);
-    const pixelRatio = this.renderer.getPixelRatio();
-    const uniforms = this.fxaaPass.material.uniforms;
-    uniforms['resolution'].value.x = 1 / (this.canvas.offsetWidth * pixelRatio);
-    uniforms['resolution'].value.y = 1 / (this.canvas.offsetHeight * pixelRatio);
-    this.composer.addPass(renderPass);
-    this.composer.addPass(this.fxaaPass);
+  get grabbing() {
+    return this.engineService.controls ? this.engineService.controls.grabbing : false;
   }
 
   private createTestScene() {
@@ -182,7 +99,7 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     light.shadow.camera.top = d;
     light.shadow.camera.bottom = -d;
     light.shadow.camera.far = 1000; */
-    this.scene.add(light);
+    this.engineService.scene.add(light);
 
     var groundMaterial = new THREE.ShadowMaterial({
       color: 0xffffff,
@@ -190,32 +107,9 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     const plane = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMaterial);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
-    this.scene.add(plane);
+    this.engineService.scene.add(plane);
 
-    this.scene.add(new THREE.AmbientLight(0x666666, 3));
-  }
-
-  private render() {
-    this.frameId = requestAnimationFrame(() => this.render());
-    this.composer.render();
-    // this.renderer.render(this.scene, this.camera);
-  }
-
-  private resize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
-
-    this.renderer.setSize(width, height);
-    this.composer.setSize(width, height);
-
-    const pixelRatio = this.renderer.getPixelRatio();
-    this.fxaaPass.material.uniforms['resolution'].value.x =
-      1 / (this.canvas.offsetWidth * pixelRatio);
-    this.fxaaPass.material.uniforms['resolution'].value.y =
-      1 / (this.canvas.offsetHeight * pixelRatio);
+    this.engineService.scene.add(new THREE.AmbientLight(0x666666, 3));
   }
 
   private loadGltfModel(path: string) {
@@ -228,14 +122,14 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
         }
       });
       this.loading = false;
-      this.focusObject(this.model);
+      this.engineService.focusObject(this.model);
       this.setFullRender();
     });
   }
 
   private clearScene() {
-    if (this.wireframeGroup) this.scene.remove(this.wireframeGroup);
-    if (this.model) this.scene.remove(this.model);
+    if (this.wireframeGroup) this.engineService.scene.remove(this.wireframeGroup);
+    if (this.model) this.engineService.scene.remove(this.model);
   }
 
   toggleFullScreen() {
@@ -244,14 +138,14 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
 
   setFullRender() {
     this.clearScene();
-    this.scene.add(this.model);
+    this.engineService.scene.add(this.model);
   }
 
   setWireframe() {
     this.clearScene();
 
     if (this.wireframeGroup) {
-      this.scene.add(this.wireframeGroup);
+      this.engineService.scene.add(this.wireframeGroup);
       return;
     }
 
@@ -271,34 +165,6 @@ export class ViewerComponent implements AfterViewInit, OnDestroy {
     const solid = new THREE.MeshBasicMaterial({color: 0xffffff});
     const base = new THREE.Mesh(this.geometry, solid);
     this.wireframeGroup.add(base);
-    this.scene.add(this.wireframeGroup);
-  }
-
-  private focusObject(object: THREE.Object3D, maintainAngle = false) {
-    const box = new THREE.Box3();
-    box.expandByObject(object);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-
-    const maxSize = Math.max(size.x, size.y, size.z);
-    const fitHeightDistance = maxSize / (2 * Math.atan((Math.PI * this.camera.fov) / 360));
-    const fitWidthDistance = fitHeightDistance / this.camera.aspect;
-    const distance = Math.max(fitHeightDistance, fitWidthDistance);
-
-    const direction = new THREE.Vector3(0, 0, -1)
-      .clone()
-      .sub(maintainAngle ? this.camera.position : new THREE.Vector3())
-      .normalize()
-      .multiplyScalar(distance);
-
-    this.controls.maxDistance = distance * 10;
-    this.controls.target.copy(center);
-
-    this.camera.near = distance / 100;
-    this.camera.far = distance * 100;
-    this.camera.updateProjectionMatrix();
-    this.camera.position.copy(this.controls.target).sub(direction);
-
-    this.controls.update();
+    this.engineService.scene.add(this.wireframeGroup);
   }
 }
