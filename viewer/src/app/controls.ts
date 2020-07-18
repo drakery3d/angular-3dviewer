@@ -34,6 +34,7 @@ class Controls extends EventDispatcher {
   autoRotateSpeed = 2.0;
   enableKeys = true;
   keys = {LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40};
+  grabbing = false;
   mouseButtons = {
     LEFT: MOUSE.ROTATE,
     MIDDLE: MOUSE.PAN,
@@ -110,12 +111,9 @@ class Controls extends EventDispatcher {
     this.target.copy(this.target0);
     this.object.position.copy(this.position0);
     this.object.zoom = this.zoom0;
-
     this.object.updateProjectionMatrix();
     this.dispatchEvent(this.changeEvent);
-
     this.update();
-
     this.state = this.STATE.NONE;
   }
 
@@ -132,7 +130,6 @@ class Controls extends EventDispatcher {
       false,
     );
     this.domElement.ownerDocument.removeEventListener('mouseup', this.onMouseUp.bind(this), false);
-
     this.domElement.removeEventListener('keydown', this.onKeyDown.bind(this), false);
 
     //this.dispatchEvent( { type: 'dispose' } ); // should this be added here?
@@ -144,22 +141,16 @@ class Controls extends EventDispatcher {
     // so camera.up is the orbit axis
     var quat = new Quaternion().setFromUnitVectors(this.object.up, new Vector3(0, 1, 0));
     var quatInverse = quat.clone().inverse();
-
     var lastPosition = new Vector3();
     var lastQuaternion = new Quaternion();
-
     var twoPI = 2 * Math.PI;
-
     var position = this.object.position;
-
     offset.copy(position).sub(this.target);
 
     // rotate offset to "y-axis-is-up" space
     offset.applyQuaternion(quat);
-
     // angle from z-axis around y-axis
     this.spherical.setFromVector3(offset);
-
     if (this.autoRotate && this.state === this.STATE.NONE) {
       this.rotateLeft(this.getAutoRotationAngle());
     }
@@ -180,10 +171,8 @@ class Controls extends EventDispatcher {
     if (isFinite(min) && isFinite(max)) {
       if (min < -Math.PI) min += twoPI;
       else if (min > Math.PI) min -= twoPI;
-
       if (max < -Math.PI) max += twoPI;
       else if (max > Math.PI) max -= twoPI;
-
       if (min < max) {
         this.spherical.theta = Math.max(min, Math.min(max, this.spherical.theta));
       } else {
@@ -199,9 +188,7 @@ class Controls extends EventDispatcher {
       this.minPolarAngle,
       Math.min(this.maxPolarAngle, this.spherical.phi),
     );
-
     this.spherical.makeSafe();
-
     this.spherical.radius *= this.scale;
 
     // restrict radius to be between desired limits
@@ -217,24 +204,19 @@ class Controls extends EventDispatcher {
     } else {
       this.target.add(this.panOffset);
     }
-
     offset.setFromSpherical(this.spherical);
 
     // rotate offset back to "camera-up-vector-is-up" space
     offset.applyQuaternion(quatInverse);
-
     position.copy(this.target).add(offset);
-
     this.object.lookAt(this.target);
 
     if (this.enableDamping === true) {
       this.sphericalDelta.theta *= 1 - this.dampingFactor;
       this.sphericalDelta.phi *= 1 - this.dampingFactor;
-
       this.panOffset.multiplyScalar(1 - this.dampingFactor);
     } else {
       this.sphericalDelta.set(0, 0, 0);
-
       this.panOffset.set(0, 0, 0);
     }
 
@@ -250,11 +232,9 @@ class Controls extends EventDispatcher {
       8 * (1 - lastQuaternion.dot(this.object.quaternion)) > this.EPS
     ) {
       this.dispatchEvent(this.changeEvent);
-
       lastPosition.copy(this.object.position);
       lastQuaternion.copy(this.object.quaternion);
       this.zoomChanged = false;
-
       return true;
     }
 
@@ -281,33 +261,26 @@ class Controls extends EventDispatcher {
     var v = new Vector3();
     v.setFromMatrixColumn(objectMatrix, 0); // get X column of objectMatrix
     v.multiplyScalar(-distance);
-
     this.panOffset.add(v);
-
     return function panLeft() {};
   }
 
   private panUp(distance, objectMatrix) {
     var v = new Vector3();
-
     if (this.screenSpacePanning === true) {
       v.setFromMatrixColumn(objectMatrix, 1);
     } else {
       v.setFromMatrixColumn(objectMatrix, 0);
       v.crossVectors(this.object.up, v);
     }
-
     v.multiplyScalar(distance);
-
     this.panOffset.add(v);
   }
 
   // deltaX and deltaY are in pixels; right and down are positive
   private pan(deltaX, deltaY) {
     var offset = new Vector3();
-
     var element = this.domElement;
-
     if (this.object.isPerspectiveCamera) {
       // perspective
       var position = this.object.position;
@@ -391,17 +364,11 @@ class Controls extends EventDispatcher {
 
   private handleMouseMoveRotate(event) {
     this.rotateEnd.set(event.clientX, event.clientY);
-
     this.rotateDelta.subVectors(this.rotateEnd, this.rotateStart).multiplyScalar(this.rotateSpeed);
-
     var element = this.domElement;
-
     this.rotateLeft((2 * Math.PI * this.rotateDelta.x) / element.clientHeight); // yes, height
-
     this.rotateUp((2 * Math.PI * this.rotateDelta.y) / element.clientHeight);
-
     this.rotateStart.copy(this.rotateEnd);
-
     this.update();
   }
 
@@ -423,18 +390,14 @@ class Controls extends EventDispatcher {
 
   private handleMouseMovePan(event) {
     this.panEnd.set(event.clientX, event.clientY);
-
     this.panDelta.subVectors(this.panEnd, this.panStart).multiplyScalar(this.panSpeed);
-
     this.pan(this.panDelta.x, this.panDelta.y);
-
     this.panStart.copy(this.panEnd);
-
     this.update();
   }
 
-  private handleMouseUp(/*event*/) {
-    // no-op
+  private handleMouseUp() {
+    this.grabbing = false;
   }
 
   private handleMouseWheel(event) {
@@ -475,7 +438,6 @@ class Controls extends EventDispatcher {
     if (needsUpdate) {
       // prevent the browser from scrolling on cursor keys
       event.preventDefault();
-
       this.update();
     }
   }
@@ -486,7 +448,6 @@ class Controls extends EventDispatcher {
     } else {
       var x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
       var y = 0.5 * (event.touches[0].pageY + event.touches[1].pageY);
-
       this.rotateStart.set(x, y);
     }
   }
@@ -497,7 +458,6 @@ class Controls extends EventDispatcher {
     } else {
       var x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
       var y = 0.5 * (event.touches[0].pageY + event.touches[1].pageY);
-
       this.panStart.set(x, y);
     }
   }
@@ -505,21 +465,17 @@ class Controls extends EventDispatcher {
   private handleTouchStartDolly(event) {
     var dx = event.touches[0].pageX - event.touches[1].pageX;
     var dy = event.touches[0].pageY - event.touches[1].pageY;
-
     var distance = Math.sqrt(dx * dx + dy * dy);
-
     this.dollyStart.set(0, distance);
   }
 
   private handleTouchStartDollyPan(event) {
     if (this.enableZoom) this.handleTouchStartDolly(event);
-
     if (this.enablePan) this.handleTouchStartPan(event);
   }
 
   private handleTouchStartDollyRotate(event) {
     if (this.enableZoom) this.handleTouchStartDolly(event);
-
     if (this.enableRotate) this.handleTouchStartRotate(event);
   }
 
@@ -529,18 +485,13 @@ class Controls extends EventDispatcher {
     } else {
       var x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
       var y = 0.5 * (event.touches[0].pageY + event.touches[1].pageY);
-
       this.rotateEnd.set(x, y);
     }
 
     this.rotateDelta.subVectors(this.rotateEnd, this.rotateStart).multiplyScalar(this.rotateSpeed);
-
     var element = this.domElement;
-
     this.rotateLeft((2 * Math.PI * this.rotateDelta.x) / element.clientHeight); // yes, height
-
     this.rotateUp((2 * Math.PI * this.rotateDelta.y) / element.clientHeight);
-
     this.rotateStart.copy(this.rotateEnd);
   }
 
@@ -550,51 +501,35 @@ class Controls extends EventDispatcher {
     } else {
       var x = 0.5 * (event.touches[0].pageX + event.touches[1].pageX);
       var y = 0.5 * (event.touches[0].pageY + event.touches[1].pageY);
-
       this.panEnd.set(x, y);
     }
 
     this.panDelta.subVectors(this.panEnd, this.panStart).multiplyScalar(this.panSpeed);
-
     this.pan(this.panDelta.x, this.panDelta.y);
-
     this.panStart.copy(this.panEnd);
   }
 
   private handleTouchMoveDolly(event) {
     var dx = event.touches[0].pageX - event.touches[1].pageX;
     var dy = event.touches[0].pageY - event.touches[1].pageY;
-
     var distance = Math.sqrt(dx * dx + dy * dy);
-
     this.dollyEnd.set(0, distance);
-
     this.dollyDelta.set(0, Math.pow(this.dollyEnd.y / this.dollyStart.y, this.zoomSpeed));
-
     this.dollyOut(this.dollyDelta.y);
-
     this.dollyStart.copy(this.dollyEnd);
   }
 
   private handleTouchMoveDollyPan(event) {
     if (this.enableZoom) this.handleTouchMoveDolly(event);
-
     if (this.enablePan) this.handleTouchMovePan(event);
   }
 
   private handleTouchMoveDollyRotate(event) {
     if (this.enableZoom) this.handleTouchMoveDolly(event);
-
     if (this.enableRotate) this.handleTouchMoveRotate(event);
   }
 
-  private handleTouchEnd(/*event*/) {
-    // no-op
-  }
-
-  //
-  // event handlers - FSM: listen for events and reset state
-  //
+  private handleTouchEnd() {}
 
   private onMouseDown(event) {
     if (this.enabled === false) return;
@@ -605,7 +540,7 @@ class Controls extends EventDispatcher {
     // Manually set the focus since calling preventDefault above
     // prevents the browser from setting it automatically.
     this.domElement.focus ? this.domElement.focus() : window.focus();
-
+    this.grabbing = true;
     var mouseAction;
 
     switch (event.button) {
@@ -628,25 +563,18 @@ class Controls extends EventDispatcher {
     switch (mouseAction) {
       case MOUSE.DOLLY:
         if (this.enableZoom === false) return;
-
         this.handleMouseDownDolly(event);
-
         this.state = this.STATE.DOLLY;
-
         break;
 
       case MOUSE.ROTATE:
         if (event.ctrlKey || event.metaKey || event.shiftKey) {
           if (this.enablePan === false) return;
-
           this.handleMouseDownPan(event);
-
           this.state = this.STATE.PAN;
         } else {
           if (this.enableRotate === false) return;
-
           this.handleMouseDownRotate(event);
-
           this.state = this.STATE.ROTATE;
         }
 
@@ -655,15 +583,11 @@ class Controls extends EventDispatcher {
       case MOUSE.PAN:
         if (event.ctrlKey || event.metaKey || event.shiftKey) {
           if (this.enableRotate === false) return;
-
           this.handleMouseDownRotate(event);
-
           this.state = this.STATE.ROTATE;
         } else {
           if (this.enablePan === false) return;
-
           this.handleMouseDownPan(event);
-
           this.state = this.STATE.PAN;
         }
 
@@ -680,7 +604,6 @@ class Controls extends EventDispatcher {
         false,
       );
       this.domElement.ownerDocument.addEventListener('mouseup', this.onMouseUp.bind(this), false);
-
       this.dispatchEvent(this.startEvent);
     }
   }
@@ -693,42 +616,31 @@ class Controls extends EventDispatcher {
     switch (this.state) {
       case this.STATE.ROTATE:
         if (this.enableRotate === false) return;
-
         this.handleMouseMoveRotate(event);
-
         break;
 
       case this.STATE.DOLLY:
         if (this.enableZoom === false) return;
-
         this.handleMouseMoveDolly(event);
-
         break;
 
       case this.STATE.PAN:
         if (this.enablePan === false) return;
-
         this.handleMouseMovePan(event);
-
         break;
     }
   }
 
   private onMouseUp(event) {
     if (this.enabled === false) return;
-
-    // handleMouseUp(event);
     this.handleMouseUp();
-
     this.domElement.ownerDocument.removeEventListener(
       'mousemove',
       this.onMouseMove.bind(this),
       false,
     );
     this.domElement.ownerDocument.removeEventListener('mouseup', this.onMouseUp.bind(this), false);
-
     this.dispatchEvent(this.endEvent);
-
     this.state = this.STATE.NONE;
   }
 
@@ -750,7 +662,6 @@ class Controls extends EventDispatcher {
 
   private onKeyDown(event) {
     if (this.enabled === false || this.enableKeys === false || this.enablePan === false) return;
-
     this.handleKeyDown(event);
   }
 
