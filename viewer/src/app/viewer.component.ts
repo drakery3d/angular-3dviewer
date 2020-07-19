@@ -143,9 +143,8 @@ export class ViewerComponent implements AfterViewInit {
     if (event.keyCode === Keys.F) this.engineService.focusObject(this.model, true);
   }
 
-  @HostListener('document:mousedown', ['$event'])
+  @HostListener('document:dblclick', ['$event'])
   handleMouseDown(event: MouseEvent) {
-    if (event.button !== 0) return;
     const x = event.clientX,
       y = event.clientY;
     this.mouse.x = (x / window.innerWidth) * 2 - 1;
@@ -165,6 +164,7 @@ export class ViewerComponent implements AfterViewInit {
     }
     this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
     // TODO idea: set small object with animation to pivot point
+    // TODO animation https://stackoverflow.com/questions/18401213/
   }
 
   onInputChanged(event) {
