@@ -92,9 +92,9 @@ export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
 
+  private scene: THREE.Group;
   private model: THREE.Mesh;
-  private mesh: THREE.Mesh;
-  private geometry: THREE.Geometry | undefined;
+  private wireframeModel: THREE.Mesh;
   private wireframeGroup: THREE.Group | undefined;
   private albedoModel: THREE.Mesh;
   private normalModel: THREE.Mesh;
@@ -195,20 +195,15 @@ export class ViewerComponent implements AfterViewInit {
   private loadGltfModel(file: string | ArrayBuffer) {
     // new GLTFLoader().load(`assets/${path}`, gltf => {
     new GLTFLoader().load(file.toString(), gltf => {
-      this.mesh = gltf.scene.children[0] as THREE.Mesh;
-      this.mesh.traverse(obj => {
+      this.scene = gltf.scene;
+      // TODO multiple children
+      this.scene.children[0].traverse(obj => {
         if ((obj as any).isMesh) {
           obj.castShadow = true;
           obj.receiveShadow = true;
           this.model = obj as THREE.Mesh;
         }
       });
-      // TODO apply transformations of parent objects to ensure same transforms as scene
-      this.model.traverse((child: any) => {
-        if (!child.isMesh) return;
-        this.geometry = child.geometry;
-      });
-      console.log(this.model);
       this.loading = false;
       this.engineService.focusObject(this.model);
       this.setFullRender();
@@ -235,6 +230,7 @@ export class ViewerComponent implements AfterViewInit {
   setFullRender() {
     this.clearScene();
     this.engineService.scene.add(this.model);
+    console.log(this.model);
   }
 
   setAlbedo() {
@@ -337,7 +333,7 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   setSpecular() {
-    // TODO specualr
+    // TODO specular
   }
 
   setWireframe() {
@@ -352,15 +348,29 @@ export class ViewerComponent implements AfterViewInit {
       color: 0x000000,
       linewidth: 1,
     });
-    const geo = new THREE.WireframeGeometry(this.geometry);
+    this.wireframeModel = this.model.clone(true);
+    this.wireframeModel.geometry = new THREE.WireframeGeometry(this.model.geometry);
+
     this.wireframeGroup = new THREE.Group();
-    const wireframe = new THREE.LineSegments(geo, mat);
+    const wireframe = new THREE.LineSegments(this.wireframeModel.geometry, mat);
+
     this.wireframeGroup.add(wireframe);
     const solid = new THREE.MeshStandardMaterial({
       color: this.clearColor.getHex(),
       roughness: 1,
     });
-    const base = new THREE.Mesh(this.geometry, solid);
+    this.wireframeGroup.rotation.set(
+      this.model.rotation.x,
+      this.model.rotation.y,
+      this.model.rotation.z,
+    );
+    this.wireframeGroup.scale.set(this.model.scale.x, this.model.scale.y, this.model.scale.z);
+    this.wireframeGroup.position.set(
+      this.model.position.x,
+      this.model.position.y,
+      this.model.position.z,
+    );
+    const base = new THREE.Mesh(this.model.geometry, solid);
     this.wireframeGroup.add(base);
     this.engineService.scene.add(this.wireframeGroup);
   }
@@ -373,16 +383,18 @@ export class ViewerComponent implements AfterViewInit {
     this.faceNormals.add(this.model);
     // TODO how to calc size of helper lines?
     const size = 0.003;
-    this.faceNormals.add(new VertexNormalsHelper(this.mesh, size, 0x000000));
+    this.faceNormals.add(new VertexNormalsHelper(this.model, size, 0x000000));
     // TODO face normals don't work (only vetex normals) (this.geometry doesn't have faces properrt)
     // this.faceNormals.add(new FaceNormalsHelper(this.geometry, 0.003));
 
-    const geo = new THREE.WireframeGeometry(this.geometry);
     const mat = new THREE.LineBasicMaterial({
       color: 0x000000,
       linewidth: 1,
     });
-    const wireframe = new THREE.LineSegments(geo, mat);
+    const wireframeModel = this.model.clone(true);
+    wireframeModel.geometry = new THREE.WireframeGeometry(this.model.geometry);
+    const wireframe = new THREE.LineSegments(wireframeModel.geometry, mat);
+
     this.faceNormals.add(wireframe);
 
     this.engineService.scene.add(this.faceNormals);
