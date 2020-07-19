@@ -100,7 +100,7 @@ export class EngineService implements OnDestroy {
 
   private render() {
     this.frameId = requestAnimationFrame(() => this.render());
-    this.controls.update(); // for control damping
+    this.controls.update(); // for control.damping
     this.composer.render();
     // this.renderer.render(this.scene, this.camera);
   }
