@@ -9,10 +9,10 @@ import {OrbitControls} from './controls';
 export class EngineService implements OnDestroy {
   scene: THREE.Scene;
   controls: OrbitControls;
+  camera: THREE.PerspectiveCamera;
 
   private canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
-  private camera: THREE.PerspectiveCamera;
   private composer: EffectComposer;
   private frameId: number;
 
