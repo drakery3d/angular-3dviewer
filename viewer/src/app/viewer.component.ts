@@ -11,6 +11,7 @@ import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelpe
 
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
+import {RGBA_ASTC_10x5_Format} from 'three';
 
 @Component({
   selector: 'app-viewer',
@@ -108,6 +109,8 @@ export class ViewerComponent implements AfterViewInit {
   private specularModel: THREE.Mesh;
   private faceNormals: THREE.Group;
 
+  private mouse = new THREE.Vector2();
+
   private objLoader2 = new OBJLoader2();
   // private clearColor = new THREE.Color(0xffffff);
   private clearColor = new THREE.Color(0xeeeeee);
@@ -138,6 +141,30 @@ export class ViewerComponent implements AfterViewInit {
       S = 115,
     }
     if (event.keyCode === Keys.F) this.engineService.focusObject(this.model, true);
+  }
+
+  @HostListener('document:mousedown', ['$event'])
+  handleMouseDown(event: MouseEvent) {
+    if (event.button !== 0) return;
+    const x = event.clientX,
+      y = event.clientY;
+    this.mouse.x = (x / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(y / window.innerHeight) * 2 + 1;
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(this.mouse, this.engineService.camera);
+    let intersects = [];
+    raycaster.intersectObject(this.model, false, intersects);
+    if (!intersects.length) {
+      console.log('no intersestions');
+      return;
+    }
+    let min;
+    for (const i of intersects) {
+      if (!min || i.distance < min.distance) min = i;
+    }
+    this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
+    // TODO idea: set small object with animation to pivot point
   }
 
   onInputChanged(event) {
