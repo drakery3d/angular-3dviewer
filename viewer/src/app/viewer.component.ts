@@ -1,4 +1,4 @@
-import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core';
+import {Component, ViewChild, ElementRef, AfterViewInit, HostListener, NgZone} from '@angular/core';
 
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
@@ -13,16 +13,23 @@ import {FullscreenService} from './fullscreen.service';
   template: `
     <div class="container">
       <div class="loader" *ngIf="loading"><h1>Loading</h1></div>
-      <div class="gui" *ngIf="!loading">
-        <button (click)="setFullRender()">Full</button>
-        <button (click)="setWireframe()">Wireframe</button>
-        <button (click)="setAlbedo()">Albedo</button>
-        <button (click)="setNormal()">Normal</button>
-        <button (click)="setRoughness()">Roughness</button>
-        <button (click)="setMetallic()">Metallic</button>
-        <button (click)="setAO()">AO</button>
-        <button (click)="setFaceNormals()">Face Normals</button>
-        <button (click)="toggleFullScreen()">Fullscreen</button>
+      <div class="gui">
+        <div class="upload-btn-wrapper">
+          <button class="btn">Upload files</button>
+          <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
+        </div>
+        <div *ngIf="!loading">
+          <button (click)="setFullRender()">Full</button>
+          <button (click)="setWireframe()">Wireframe</button>
+          <button (click)="setAlbedo()">Albedo</button>
+          <button (click)="setNormal()">Normal</button>
+          <button (click)="setRoughness()">Roughness</button>
+          <button (click)="setMetallic()">Metallic</button>
+          <button (click)="setAO()">AO</button>
+          <button (click)="setSpecular()">Specular</button>
+          <button (click)="setFaceNormals()">Face Normals</button>
+          <button (click)="toggleFullScreen()">Fullscreen</button>
+        </div>
       </div>
       <div class="wrapper">
         <canvas #rendererCanvas id="renderCanvas" [class.grabbing]="grabbing"></canvas>
@@ -55,6 +62,29 @@ import {FullscreenService} from './fullscreen.service';
         display: flex;
         flex-direction: row;
       }
+
+      .upload-btn-wrapper {
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        cursor: pointer;
+      }
+      .btn {
+        color: white;
+        background-color: #57c860;
+        padding: 8px 20px;
+        font-weight: bold;
+        outline: none;
+        border: 0;
+      }
+      .upload-btn-wrapper input[type='file'] {
+        font-size: 100px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+      }
     `,
   ],
 })
@@ -71,19 +101,30 @@ export class ViewerComponent implements AfterViewInit {
   private roughnessModel: THREE.Mesh;
   private aoModel: THREE.Mesh;
   private metallicModel: THREE.Mesh;
+  private specularModel: THREE.Mesh;
   private faceNormals: THREE.Group;
 
   private clearColor = new THREE.Color(0xffffff);
 
   loading = true;
 
-  constructor(private engineService: EngineService, private fullscreenService: FullscreenService) {}
+  // TODO hdri https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_gltf.html
+  // TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
+  // TODO ssao https://threejs.org/examples/#webgl_postprocessing_ssao
+  // TODO bloom https://threejs.org/examples/#webgl_postprocessing_unreal_bloom
+
+  constructor(
+    private engineService: EngineService,
+    private fullscreenService: FullscreenService,
+    private ngZone: NgZone,
+  ) {}
 
   ngAfterViewInit() {
     this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
     this.engineService.setBackground(this.clearColor);
-    this.loadGltfModel('wooden-buddha.glb');
+    // this.loadGltfModel('deer-antler.glb');
+    // this.loadGltfModel('wooden-buddha.glb');
     // this.loadGltfModel('Astronaut.glb');
     this.createTestScene();
   }
@@ -98,6 +139,26 @@ export class ViewerComponent implements AfterViewInit {
       S = 115,
     }
     if (event.keyCode === Keys.F) this.engineService.focusObject(this.model, true);
+  }
+
+  onInputChanged(event) {
+    const files: File[] = Array.from(event.target.files);
+    const gltf = files.filter(
+      f => f.name.split('.').pop() === 'gltf' || f.name.split('.').pop() === 'glb',
+    );
+    const obj = files.filter(f => f.name.split('.').pop() === 'obj');
+    const mtl = files.filter(f => f.name.split('.').pop() === 'mtl');
+    const images = files.filter(f => f.type.includes('image'));
+    if (gltf.length) {
+      const reader = new FileReader();
+      reader.onload = e => this.loadGltfModel(e.target.result);
+      reader.readAsDataURL(gltf[0]);
+    }
+    if (obj.length) {
+    }
+
+    if (images.length) {
+    }
   }
 
   get grabbing() {
@@ -131,8 +192,9 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.scene.add(new THREE.AmbientLight(0x666666, 3));
   }
 
-  private loadGltfModel(path: string) {
-    new GLTFLoader().load(`assets/${path}`, gltf => {
+  private loadGltfModel(file: string | ArrayBuffer) {
+    // new GLTFLoader().load(`assets/${path}`, gltf => {
+    new GLTFLoader().load(file.toString(), gltf => {
       this.mesh = gltf.scene.children[0] as THREE.Mesh;
       this.mesh.traverse(obj => {
         if ((obj as any).isMesh) {
@@ -146,6 +208,7 @@ export class ViewerComponent implements AfterViewInit {
         if (!child.isMesh) return;
         this.geometry = child.geometry;
       });
+      console.log(this.model);
       this.loading = false;
       this.engineService.focusObject(this.model);
       this.setFullRender();
@@ -162,6 +225,7 @@ export class ViewerComponent implements AfterViewInit {
     if (this.aoModel) this.engineService.scene.remove(this.aoModel);
     if (this.metallicModel) this.engineService.scene.remove(this.metallicModel);
     if (this.faceNormals) this.engineService.scene.remove(this.faceNormals);
+    if (this.specularModel) this.engineService.scene.remove(this.specularModel);
   }
 
   toggleFullScreen() {
@@ -183,7 +247,7 @@ export class ViewerComponent implements AfterViewInit {
     this.albedoModel = this.model.clone();
     const fullMaterial = this.albedoModel.material as THREE.MeshPhysicalMaterial;
     const material = new THREE.MeshBasicMaterial({
-      color: fullMaterial.color,
+      // color: fullMaterial.color,
       map: fullMaterial.map,
     });
     this.albedoModel.material = material;
@@ -227,7 +291,6 @@ export class ViewerComponent implements AfterViewInit {
     const fullMaterial = this.roughnessModel.material as THREE.MeshPhysicalMaterial;
     // TODO doens't work yet
     const material = new THREE.MeshBasicMaterial({
-      color: fullMaterial.roughness,
       map: fullMaterial.roughnessMap,
     });
     this.roughnessModel.material = material;
@@ -244,11 +307,16 @@ export class ViewerComponent implements AfterViewInit {
     this.metallicModel = this.model.clone();
     const fullMaterial = this.metallicModel.material as THREE.MeshPhysicalMaterial;
     // TODO doens't work yet
-    const material = new THREE.MeshBasicMaterial({
-      color: fullMaterial.metalness,
+
+    const materialOptimistic = new THREE.MeshBasicMaterial({
       map: fullMaterial.metalnessMap,
     });
-    this.metallicModel.material = material;
+    const materialPessimistic = new THREE.MeshBasicMaterial({
+      color: fullMaterial.metalness,
+    });
+    this.metallicModel.material = fullMaterial.metalnessMap
+      ? materialOptimistic
+      : materialPessimistic;
     this.engineService.scene.add(this.metallicModel);
   }
 
@@ -266,6 +334,10 @@ export class ViewerComponent implements AfterViewInit {
     });
     this.aoModel.material = material;
     this.engineService.scene.add(this.aoModel);
+  }
+
+  setSpecular() {
+    // TODO specualr
   }
 
   setWireframe() {
