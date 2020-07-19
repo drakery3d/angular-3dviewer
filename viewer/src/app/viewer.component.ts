@@ -23,7 +23,7 @@ import {FullscreenService} from './fullscreen.service';
           <button class="btn">Upload files</button>
           <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
         </div>
-        <div *ngIf="!loading">
+        <div *ngIf="!loading || true">
           <button (click)="setFullRender()">Full</button>
           <button (click)="setWireframe()">Wireframe</button>
           <button (click)="setAlbedo()">Albedo</button>
@@ -34,6 +34,18 @@ import {FullscreenService} from './fullscreen.service';
           <button (click)="setSpecular()">Specular</button>
           <button (click)="setFaceNormals()">Face Normals</button>
           <button (click)="toggleFullScreen()">Fullscreen</button>
+
+          <div>
+            <span>bloom</span>
+            <input
+              type="range"
+              min="0"
+              max="1.5"
+              value="0"
+              step="0.01"
+              (change)="onBloomChange($event)"
+            />
+          </div>
         </div>
       </div>
       <div class="wrapper">
@@ -63,7 +75,7 @@ import {FullscreenService} from './fullscreen.service';
         right: 0;
         left: 0;
         background: white;
-        height: 40px;
+        height: 80px;
         display: flex;
         flex-direction: row;
       }
@@ -111,16 +123,15 @@ export class ViewerComponent implements AfterViewInit {
 
   private mouse = new THREE.Vector2();
 
-  private objLoader2 = new OBJLoader2();
   // private clearColor = new THREE.Color(0xffffff);
   private clearColor = new THREE.Color(0xeeeeee);
 
   loading = true;
 
-  // TODO hdri https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_gltf.html
   // TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
   // TODO ssao https://threejs.org/examples/#webgl_postprocessing_ssao
   // TODO bloom https://threejs.org/examples/#webgl_postprocessing_unreal_bloom
+  // TODO nodes https://threejs.org/examples/?q=post#webgl_postprocessing_nodes
 
   constructor(private engineService: EngineService, private fullscreenService: FullscreenService) {}
 
@@ -165,6 +176,11 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
     // TODO idea: set small object with animation to pivot point
     // TODO animation https://stackoverflow.com/questions/18401213/
+  }
+
+  onBloomChange(event) {
+    console.log(event);
+    this.engineService.bloomPass.strength = event.path[0].value;
   }
 
   onInputChanged(event) {

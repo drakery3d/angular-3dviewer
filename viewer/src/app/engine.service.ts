@@ -2,6 +2,7 @@ import {Injectable, ElementRef, NgZone, OnDestroy} from '@angular/core';
 import * as THREE from 'three';
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
+import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
 import {OrbitControls} from './controls';
 
@@ -11,6 +12,7 @@ export class EngineService implements OnDestroy {
   controls: OrbitControls;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  bloomPass: UnrealBloomPass;
 
   private canvas: HTMLCanvasElement;
   private composer: EffectComposer;
@@ -55,6 +57,14 @@ export class EngineService implements OnDestroy {
     this.composer = new EffectComposer(this.renderer);
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
+
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.1,
+      0.4,
+      0.85,
+    );
+    this.composer.addPass(this.bloomPass);
   }
 
   setBackground(color: THREE.Color) {
@@ -112,6 +122,8 @@ export class EngineService implements OnDestroy {
 
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
+
+      this.bloomPass.setSize(width, height);
 
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
