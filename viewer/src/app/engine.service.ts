@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import {SSAOPass} from 'three/examples/jsm/postprocessing/SSAOPass';
 
 import {OrbitControls} from './controls';
 
@@ -13,6 +14,7 @@ export class EngineService implements OnDestroy {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   bloomPass: UnrealBloomPass;
+  ssaoPass: SSAOPass;
 
   private canvas: HTMLCanvasElement;
   private composer: EffectComposer;
@@ -25,6 +27,8 @@ export class EngineService implements OnDestroy {
   }
 
   createScene(canvas: ElementRef<HTMLCanvasElement>) {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     this.canvas = canvas.nativeElement;
 
     this.renderer = new THREE.WebGLRenderer({canvas: this.canvas, antialias: true});
@@ -58,12 +62,11 @@ export class EngineService implements OnDestroy {
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    this.bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.1,
-      0.4,
-      0.85,
-    );
+    this.ssaoPass = new SSAOPass(this.scene, this.camera, width, height);
+    this.ssaoPass.kernelRadius = 16;
+    this.composer.addPass(this.ssaoPass);
+
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.1, 0.4, 0.85);
     this.composer.addPass(this.bloomPass);
   }
 
@@ -124,7 +127,7 @@ export class EngineService implements OnDestroy {
       this.camera.updateProjectionMatrix();
 
       this.bloomPass.setSize(width, height);
-
+      this.ssaoPass.setSize(width, height);
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
     });
