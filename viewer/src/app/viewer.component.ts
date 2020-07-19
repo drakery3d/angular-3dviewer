@@ -8,10 +8,10 @@ import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader';
 import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
 import {FaceNormalsHelper} from 'three/examples/jsm/helpers/FaceNormalsHelper';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper';
+import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader';
 
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
-import {RGBA_ASTC_10x5_Format} from 'three';
 
 @Component({
   selector: 'app-viewer',
@@ -202,31 +202,16 @@ export class ViewerComponent implements AfterViewInit {
     return this.engineService.controls ? this.engineService.controls.grabbing : false;
   }
 
-  private createTestScene() {
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    /* light.shadow.bias = -0.0001;
-    light.position.set(300, 400, 50);
-    light.castShadow = true;
-    light.shadow.radius = 1;
-    light.shadow.mapSize.width = 2 ** 12; // 4k
-    light.shadow.mapSize.height = 2 ** 12; // 4k
-    const d = 200;
-    light.shadow.camera.left = -d;
-    light.shadow.camera.right = d;
-    light.shadow.camera.top = d;
-    light.shadow.camera.bottom = -d;
-    light.shadow.camera.far = 1000; */
-    this.engineService.scene.add(light);
-
-    var groundMaterial = new THREE.ShadowMaterial({
-      color: 0xffffff,
-    });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMaterial);
-    plane.rotation.x = -Math.PI / 2;
-    plane.receiveShadow = true;
-    this.engineService.scene.add(plane);
-
-    this.engineService.scene.add(new THREE.AmbientLight(0x666666, 3));
+  private async createTestScene() {
+    const texture = await new RGBELoader().loadAsync('assets/studio_small_03_1k.hdr');
+    const pmremGenerator = new THREE.PMREMGenerator(this.engineService.renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    // this.engineService.scene.background = envMap;
+    this.engineService.scene.environment = envMap;
+    // TODO rotate env and adjust exposure
+    // TODO set as background + blur background
+    pmremGenerator.dispose();
   }
   private async loadObjModel(
     objFile: string | ArrayBuffer,
