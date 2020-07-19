@@ -2,6 +2,10 @@ import {Component, ViewChild, ElementRef, AfterViewInit, HostListener, NgZone} f
 
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
+import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
+import {MtlObjBridge} from 'three/examples/jsm/loaders/obj2/bridge/MtlObjBridge';
+import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader';
+import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
 import {FaceNormalsHelper} from 'three/examples/jsm/helpers/FaceNormalsHelper';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper';
 
@@ -92,7 +96,7 @@ export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
 
-  private scene: THREE.Group;
+  private scene = new THREE.Group();
   private model: THREE.Mesh;
   private wireframeModel: THREE.Mesh;
   private wireframeGroup: THREE.Group | undefined;
@@ -104,7 +108,9 @@ export class ViewerComponent implements AfterViewInit {
   private specularModel: THREE.Mesh;
   private faceNormals: THREE.Group;
 
-  private clearColor = new THREE.Color(0xffffff);
+  private objLoader2 = new OBJLoader2();
+  // private clearColor = new THREE.Color(0xffffff);
+  private clearColor = new THREE.Color(0xeeeeee);
 
   loading = true;
 
@@ -113,19 +119,12 @@ export class ViewerComponent implements AfterViewInit {
   // TODO ssao https://threejs.org/examples/#webgl_postprocessing_ssao
   // TODO bloom https://threejs.org/examples/#webgl_postprocessing_unreal_bloom
 
-  constructor(
-    private engineService: EngineService,
-    private fullscreenService: FullscreenService,
-    private ngZone: NgZone,
-  ) {}
+  constructor(private engineService: EngineService, private fullscreenService: FullscreenService) {}
 
   ngAfterViewInit() {
     this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
     this.engineService.setBackground(this.clearColor);
-    // this.loadGltfModel('deer-antler.glb');
-    // this.loadGltfModel('wooden-buddha.glb');
-    // this.loadGltfModel('Astronaut.glb');
     this.createTestScene();
   }
 
@@ -155,6 +154,17 @@ export class ViewerComponent implements AfterViewInit {
       reader.readAsDataURL(gltf[0]);
     }
     if (obj.length) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        if (mtl.length) {
+          const reader2 = new FileReader();
+          reader2.onload = e2 => this.loadObjModel(e.target.result, e2.target.result, images);
+          reader2.readAsDataURL(mtl[0]);
+        } else {
+          this.loadObjModel(e.target.result, null, images);
+        }
+      };
+      reader.readAsDataURL(obj[0]);
     }
 
     if (images.length) {
@@ -166,7 +176,7 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   private createTestScene() {
-    const light = new THREE.DirectionalLight(0xdfebff, 5);
+    const light = new THREE.DirectionalLight(0xffffff, 1);
     /* light.shadow.bias = -0.0001;
     light.position.set(300, 400, 50);
     light.castShadow = true;
@@ -191,9 +201,73 @@ export class ViewerComponent implements AfterViewInit {
 
     this.engineService.scene.add(new THREE.AmbientLight(0x666666, 3));
   }
+  private async loadObjModel(
+    objFile: string | ArrayBuffer,
+    mtlFile: string | ArrayBuffer | undefined,
+    images: File[],
+  ) {
+    this.clearScene();
+    const objLoader2 = new OBJLoader2();
+    const obj: THREE.Group = await objLoader2.loadAsync(objFile.toString());
+    const mtl: MTLLoader.MaterialCreator =
+      mtlFile && (await new MTLLoader().loadAsync(mtlFile.toString()));
+
+    console.log(mtl.materialsInfo, images);
+    obj.children[0].traverse(async obj => {
+      if ((obj as any).isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+        this.model = obj as THREE.Mesh;
+
+        let albedoMap, roughnessMap, normalMap, metalnessMap, aoMap;
+        // TODO consider values in mtl file
+        for (const image of images) {
+          const {name} = image;
+          if (name.includes('albedo') || name.includes('diffuse') || name.includes('color')) {
+            albedoMap = await this.laodLocalTextureMap(image);
+            continue;
+          }
+          if (name.includes('roughness')) {
+            roughnessMap = await this.laodLocalTextureMap(image);
+            continue;
+          }
+          if (name.includes('normal')) {
+            normalMap = await this.laodLocalTextureMap(image);
+            continue;
+          }
+          if (name.includes('metal')) {
+            metalnessMap = await this.laodLocalTextureMap(image);
+            continue;
+          }
+          if (name.includes('ao') || (name.includes('ambient') && name.includes('occlusion'))) {
+            aoMap = await this.laodLocalTextureMap(image);
+            continue;
+          }
+        }
+
+        const material = new THREE.MeshPhysicalMaterial({});
+        if (albedoMap) material.map = albedoMap;
+        if (roughnessMap) material.roughnessMap = roughnessMap;
+        if (normalMap) material.normalMap = normalMap;
+        if (metalnessMap) material.metalnessMap = metalnessMap;
+        if (aoMap) material.aoMap = aoMap;
+
+        this.model.material = material;
+      }
+    });
+    this.loading = false;
+    this.engineService.focusObject(this.model);
+    this.setFullRender();
+  }
+
+  private async laodLocalTextureMap(file: File) {
+    const url = await this.getTempFileUrl(file);
+    const loader = new THREE.TextureLoader();
+    return loader.loadAsync(url);
+  }
 
   private loadGltfModel(file: string | ArrayBuffer) {
-    // new GLTFLoader().load(`assets/${path}`, gltf => {
+    this.clearScene();
     new GLTFLoader().load(file.toString(), gltf => {
       this.scene = gltf.scene;
       // TODO multiple children
@@ -207,6 +281,14 @@ export class ViewerComponent implements AfterViewInit {
       this.loading = false;
       this.engineService.focusObject(this.model);
       this.setFullRender();
+    });
+  }
+
+  private async getTempFileUrl(file: File): Promise<string> {
+    return new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result.toString());
+      reader.readAsDataURL(file);
     });
   }
 
@@ -230,7 +312,6 @@ export class ViewerComponent implements AfterViewInit {
   setFullRender() {
     this.clearScene();
     this.engineService.scene.add(this.model);
-    console.log(this.model);
   }
 
   setAlbedo() {
@@ -261,7 +342,6 @@ export class ViewerComponent implements AfterViewInit {
     const fullMaterial = this.normalModel.material as THREE.MeshPhysicalMaterial;
     //  TODO colors are not really accurate yet
     const material = new THREE.MeshBasicMaterial({
-      color: 0x615ced,
       map: fullMaterial.normalMap,
     });
     /* const normalLaterial = new THREE.MeshNormalMaterial({
@@ -355,10 +435,6 @@ export class ViewerComponent implements AfterViewInit {
     const wireframe = new THREE.LineSegments(this.wireframeModel.geometry, mat);
 
     this.wireframeGroup.add(wireframe);
-    const solid = new THREE.MeshStandardMaterial({
-      color: this.clearColor.getHex(),
-      roughness: 1,
-    });
     this.wireframeGroup.rotation.set(
       this.model.rotation.x,
       this.model.rotation.y,
@@ -370,6 +446,10 @@ export class ViewerComponent implements AfterViewInit {
       this.model.position.y,
       this.model.position.z,
     );
+    this.wireframeGroup.updateMatrix();
+    const solid = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+    });
     const base = new THREE.Mesh(this.model.geometry, solid);
     this.wireframeGroup.add(base);
     this.engineService.scene.add(this.wireframeGroup);
@@ -385,7 +465,7 @@ export class ViewerComponent implements AfterViewInit {
     const size = 0.003;
     this.faceNormals.add(new VertexNormalsHelper(this.model, size, 0x000000));
     // TODO face normals don't work (only vetex normals) (this.geometry doesn't have faces properrt)
-    // this.faceNormals.add(new FaceNormalsHelper(this.geometry, 0.003));
+    // this.faceNormals.add(new FaceNormalsHelper(this.model.geometry, 0.003));
 
     const mat = new THREE.LineBasicMaterial({
       color: 0x000000,
