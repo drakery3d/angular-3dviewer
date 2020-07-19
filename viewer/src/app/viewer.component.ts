@@ -3,10 +3,7 @@ import {Component, ViewChild, ElementRef, AfterViewInit, HostListener, NgZone} f
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
 import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
-import {MtlObjBridge} from 'three/examples/jsm/loaders/obj2/bridge/MtlObjBridge';
-import {OBJLoader} from 'three/examples/jsm/loaders/OBJLoader';
 import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
-import {FaceNormalsHelper} from 'three/examples/jsm/helpers/FaceNormalsHelper';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper';
 import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader';
 
@@ -44,6 +41,17 @@ import {FullscreenService} from './fullscreen.service';
               value="0"
               step="0.01"
               (change)="onBloomChange($event)"
+            />
+          </div>
+          <div>
+            <span>ssao</span>
+            <input
+              type="range"
+              min="0"
+              max="32"
+              value="16"
+              step="1"
+              (change)="onSSAOChange($event)"
             />
           </div>
         </div>
@@ -120,17 +128,17 @@ export class ViewerComponent implements AfterViewInit {
   private metallicModel: THREE.Mesh;
   private specularModel: THREE.Mesh;
   private faceNormals: THREE.Group;
+  private maxObjectSize = 0;
 
   private mouse = new THREE.Vector2();
 
-  // private clearColor = new THREE.Color(0xffffff);
   private clearColor = new THREE.Color(0xeeeeee);
 
   loading = true;
 
+  // TODO sharpness
   // TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
   // TODO ssao https://threejs.org/examples/#webgl_postprocessing_ssao
-  // TODO bloom https://threejs.org/examples/#webgl_postprocessing_unreal_bloom
   // TODO nodes https://threejs.org/examples/?q=post#webgl_postprocessing_nodes
 
   constructor(private engineService: EngineService, private fullscreenService: FullscreenService) {}
@@ -179,8 +187,11 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   onBloomChange(event) {
-    console.log(event);
     this.engineService.bloomPass.strength = event.path[0].value;
+  }
+
+  onSSAOChange(event) {
+    this.engineService.ssaoPass.kernelRadius = event.path[0].value;
   }
 
   onInputChanged(event) {
@@ -246,6 +257,7 @@ export class ViewerComponent implements AfterViewInit {
         obj.castShadow = true;
         obj.receiveShadow = true;
         this.model = obj as THREE.Mesh;
+        this.setupDimenstionDependentValues();
 
         let albedoMap, roughnessMap, normalMap, metalnessMap, aoMap;
         // TODO consider values in mtl file
@@ -307,9 +319,26 @@ export class ViewerComponent implements AfterViewInit {
         }
       });
       this.loading = false;
+      this.setupDimenstionDependentValues();
+
       this.engineService.focusObject(this.model);
       this.setFullRender();
     });
+  }
+
+  private calcMaxObjectSize() {
+    const bb = this.model.geometry.boundingBox;
+    this.maxObjectSize = Math.max(
+      Math.abs(bb.max.x * this.model.scale.x - bb.min.x * this.model.scale.x),
+      Math.abs(bb.max.y * this.model.scale.y - bb.min.y * this.model.scale.y),
+      Math.abs(bb.max.z * this.model.scale.z - bb.min.z * this.model.scale.z),
+    );
+  }
+
+  private setupDimenstionDependentValues() {
+    this.calcMaxObjectSize();
+    this.engineService.ssaoPass.minDistance = this.maxObjectSize / 100;
+    this.engineService.ssaoPass.maxDistance = this.maxObjectSize / 10;
   }
 
   private async getTempFileUrl(file: File): Promise<string> {
