@@ -50,6 +50,7 @@ export class EngineService implements OnDestroy {
     this.controls.panSpeed = 1.5;
     this.controls.zoomSpeed = 3;
     this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
 
     this.composer = new EffectComposer(this.renderer);
     const renderPass = new RenderPass(this.scene, this.camera);
@@ -99,6 +100,7 @@ export class EngineService implements OnDestroy {
 
   private render() {
     this.frameId = requestAnimationFrame(() => this.render());
+    this.controls.update(); // for control damping
     this.composer.render();
     // this.renderer.render(this.scene, this.camera);
   }
