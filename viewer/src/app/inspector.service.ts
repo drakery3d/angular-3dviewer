@@ -88,7 +88,8 @@ export class InspectorService {
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     group.add(this.sceneService.model);
-    const size = 0.003; // TODO calc size
+
+    const size = this.sceneService.calcMaxObjectSize() / 200;
     // TODO face normals instead
     const normals = new VertexNormalsHelper(this.sceneService.model, size, 0x000000);
     group.add(normals);
