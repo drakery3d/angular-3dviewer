@@ -8,11 +8,12 @@ import {EngineService} from './engine.service';
 import {InspectorGuiComnponent} from './inspector-gui.component';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
+import {LoaderService} from './loader.service';
 
 @NgModule({
   declarations: [AppComponent, ViewerComponent, InspectorGuiComnponent],
   imports: [BrowserModule],
-  providers: [FullscreenService, EngineService, InspectorService, SceneService],
+  providers: [FullscreenService, EngineService, InspectorService, SceneService, LoaderService],
   bootstrap: [AppComponent],
 })
 export class AppModule {}

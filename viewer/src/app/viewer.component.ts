@@ -1,15 +1,12 @@
-import {Component, ViewChild, ElementRef, AfterViewInit, HostListener, NgZone} from '@angular/core';
-
+import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core';
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
-import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
-import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
 import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader';
 
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
+import {LoaderService} from './loader.service';
 
 @Component({
   selector: 'app-viewer',
@@ -22,15 +19,13 @@ import {SceneService} from './scene.service';
         ></app-inspector-gui>
       </div>
 
-      <div class="loader" *ngIf="loading"><h1>Loading</h1></div>
       <div class="gui">
         <div class="upload-btn-wrapper">
           <button class="btn">Upload files</button>
           <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
         </div>
-        <div *ngIf="!loading || true">
+        <div>
           <button (click)="toggleFullScreen()">Fullscreen</button>
-
           <div>
             <span>bloom</span>
             <input
@@ -78,11 +73,7 @@ import {SceneService} from './scene.service';
       .grabbing {
         cursor: grabbing;
       }
-      .loader {
-        position: absolute;
-        top: 0;
-        margin: 20px;
-      }
+
       .gui {
         position: absolute;
         bottom: 0;
@@ -122,22 +113,10 @@ import {SceneService} from './scene.service';
 export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
-  private wireframeModel: THREE.Mesh;
-  private wireframeGroup: THREE.Group | undefined;
-  private albedoModel: THREE.Mesh;
-  private normalModel: THREE.Mesh;
-  private roughnessModel: THREE.Mesh;
-  private aoModel: THREE.Mesh;
-  private metallicModel: THREE.Mesh;
-  private specularModel: THREE.Mesh;
-  private faceNormals: THREE.Group;
-  private maxObjectSize = 0;
 
   private mouse = new THREE.Vector2();
 
   private clearColor = new THREE.Color(0xeeeeee);
-
-  loading = true;
 
   // TODO sharpness
   // TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
@@ -148,6 +127,7 @@ export class ViewerComponent implements AfterViewInit {
     public sceneService: SceneService,
     private engineService: EngineService,
     private fullscreenService: FullscreenService,
+    private loaderService: LoaderService,
   ) {}
 
   ngAfterViewInit() {
@@ -161,10 +141,7 @@ export class ViewerComponent implements AfterViewInit {
   handleKeyboardEvent(event: KeyboardEvent) {
     // console.log(event.keyCode);
     enum Keys {
-      R = 114,
-      W = 119,
       F = 102,
-      S = 115,
     }
     if (event.keyCode === Keys.F) this.engineService.focusObject(this.sceneService.model, true);
   }
@@ -207,7 +184,7 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.ssaoPass.kernelRadius = event.path[0].value;
   }
 
-  onInputChanged(event) {
+  async onInputChanged(event) {
     const files: File[] = Array.from(event.target.files);
     const gltf = files.filter(
       f => f.name.split('.').pop() === 'gltf' || f.name.split('.').pop() === 'glb',
@@ -215,26 +192,14 @@ export class ViewerComponent implements AfterViewInit {
     const obj = files.filter(f => f.name.split('.').pop() === 'obj');
     const mtl = files.filter(f => f.name.split('.').pop() === 'mtl');
     const images = files.filter(f => f.type.includes('image'));
+
     if (gltf.length) {
-      const reader = new FileReader();
-      reader.onload = e => this.loadGltfModel(e.target.result);
-      reader.readAsDataURL(gltf[0]);
-    }
-    if (obj.length) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        if (mtl.length) {
-          const reader2 = new FileReader();
-          reader2.onload = e2 => this.loadObjModel(e.target.result, e2.target.result, images);
-          reader2.readAsDataURL(mtl[0]);
-        } else {
-          this.loadObjModel(e.target.result, null, images);
-        }
-      };
-      reader.readAsDataURL(obj[0]);
+      await this.loaderService.loadGltf(gltf[0]);
+      return;
     }
 
-    if (images.length) {
+    if (obj.length) {
+      await this.loaderService.loadObj(obj[0], mtl[0], images);
     }
   }
 
@@ -247,122 +212,11 @@ export class ViewerComponent implements AfterViewInit {
     const pmremGenerator = new THREE.PMREMGenerator(this.engineService.renderer);
     pmremGenerator.compileEquirectangularShader();
     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-    // this.sceneService.scene.background = envMap;
+    this.sceneService.scene.background = envMap;
     this.sceneService.scene.environment = envMap;
     // TODO rotate env and adjust exposure
     // TODO set as background + blur background
     pmremGenerator.dispose();
-  }
-  private async loadObjModel(
-    objFile: string | ArrayBuffer,
-    mtlFile: string | ArrayBuffer | undefined,
-    images: File[],
-  ) {
-    const objLoader2 = new OBJLoader2();
-    const obj: THREE.Group = await objLoader2.loadAsync(objFile.toString());
-    const mtl: MTLLoader.MaterialCreator =
-      mtlFile && (await new MTLLoader().loadAsync(mtlFile.toString()));
-
-    console.log(mtl.materialsInfo, images);
-    obj.children[0].traverse(async obj => {
-      if ((obj as any).isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-        this.sceneService.model = obj as THREE.Mesh;
-        this.setupDimenstionDependentValues();
-
-        let albedoMap, roughnessMap, normalMap, metalnessMap, aoMap;
-        // TODO consider values in mtl file
-        for (const image of images) {
-          const {name} = image;
-          if (name.includes('albedo') || name.includes('diffuse') || name.includes('color')) {
-            albedoMap = await this.laodLocalTextureMap(image);
-            continue;
-          }
-          if (name.includes('roughness')) {
-            roughnessMap = await this.laodLocalTextureMap(image);
-            continue;
-          }
-          if (name.includes('normal')) {
-            normalMap = await this.laodLocalTextureMap(image);
-            continue;
-          }
-          if (name.includes('metal')) {
-            metalnessMap = await this.laodLocalTextureMap(image);
-            continue;
-          }
-          if (name.includes('ao') || (name.includes('ambient') && name.includes('occlusion'))) {
-            aoMap = await this.laodLocalTextureMap(image);
-            continue;
-          }
-        }
-
-        const material = new THREE.MeshPhysicalMaterial({});
-        if (albedoMap) material.map = albedoMap;
-        if (roughnessMap) material.roughnessMap = roughnessMap;
-        if (normalMap) material.normalMap = normalMap;
-        if (metalnessMap) material.metalnessMap = metalnessMap;
-        if (aoMap) material.aoMap = aoMap;
-
-        this.sceneService.model.material = material;
-      }
-    });
-    this.loading = false;
-    this.engineService.focusObject(this.sceneService.model);
-    this.inspectorService.changeMode('full');
-  }
-
-  private async laodLocalTextureMap(file: File) {
-    const url = await this.getTempFileUrl(file);
-    const loader = new THREE.TextureLoader();
-    return loader.loadAsync(url);
-  }
-
-  private loadGltfModel(file: string | ArrayBuffer) {
-    new GLTFLoader().load(file.toString(), gltf => {
-      // TODO multiple children
-      gltf.scene.children[0].traverse(obj => {
-        if ((obj as any).isMesh) {
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-          this.sceneService.model = obj as THREE.Mesh;
-        }
-      });
-      this.loading = false;
-      this.setupDimenstionDependentValues();
-
-      this.engineService.focusObject(this.sceneService.model);
-      this.inspectorService.changeMode('full');
-    });
-  }
-
-  private calcMaxObjectSize() {
-    const bb = this.sceneService.model.geometry.boundingBox;
-    this.maxObjectSize = Math.max(
-      Math.abs(
-        bb.max.x * this.sceneService.model.scale.x - bb.min.x * this.sceneService.model.scale.x,
-      ),
-      Math.abs(
-        bb.max.y * this.sceneService.model.scale.y - bb.min.y * this.sceneService.model.scale.y,
-      ),
-      Math.abs(
-        bb.max.z * this.sceneService.model.scale.z - bb.min.z * this.sceneService.model.scale.z,
-      ),
-    );
-  }
-
-  private setupDimenstionDependentValues() {
-    this.calcMaxObjectSize();
-    this.engineService.ssaoPass.minDistance = this.maxObjectSize / 100;
-    this.engineService.ssaoPass.maxDistance = this.maxObjectSize / 10;
-  }
-
-  private async getTempFileUrl(file: File): Promise<string> {
-    return new Promise(res => {
-      const reader = new FileReader();
-      reader.onload = e => res(e.target.result.toString());
-      reader.readAsDataURL(file);
-    });
   }
 
   toggleFullScreen() {
