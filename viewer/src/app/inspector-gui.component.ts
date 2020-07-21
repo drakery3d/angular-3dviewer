@@ -47,7 +47,7 @@ export class InspectorGuiComnponent {
 
   @Output() modeChanged = new EventEmitter<string>();
 
-  modes = ['full', 'full_no_post', 'wireframe', 'vertices', 'face_normals', 'mesh'];
+  modes = ['full', 'full_no_post', 'wireframe', 'vertices', 'vertex_normals', 'mesh'];
   shaderModes = [
     'albedo',
     'normal',
