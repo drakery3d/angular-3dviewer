@@ -9,11 +9,19 @@ import {InspectorGuiComnponent} from './inspector-gui.component';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
+import {OBJParserService} from './obj-parser';
 
 @NgModule({
   declarations: [AppComponent, ViewerComponent, InspectorGuiComnponent],
   imports: [BrowserModule],
-  providers: [FullscreenService, EngineService, InspectorService, SceneService, LoaderService],
+  providers: [
+    FullscreenService,
+    EngineService,
+    InspectorService,
+    SceneService,
+    LoaderService,
+    OBJParserService,
+  ],
   bootstrap: [AppComponent],
 })
 export class AppModule {}

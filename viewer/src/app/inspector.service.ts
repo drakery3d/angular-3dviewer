@@ -4,6 +4,7 @@ import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelpe
 
 import {EngineService} from './engine.service';
 import {SceneService} from './scene.service';
+import {OBJParserService} from './obj-parser';
 
 @Injectable()
 export class InspectorService {
@@ -11,12 +12,15 @@ export class InspectorService {
 
   private fullMaterial: THREE.MeshPhysicalMaterial;
 
-  constructor(private engineService: EngineService, private sceneService: SceneService) {}
+  constructor(
+    private engineService: EngineService,
+    private sceneService: SceneService,
+    private objParser: OBJParserService,
+  ) {}
 
   // TODO keyboard shurtcuts for switching
   changeMode(mode: string) {
     if (this.mode === mode) return;
-    console.log(this.mode, '->', mode);
     this.mode = mode;
     this.sceneService.clear();
 
@@ -46,27 +50,48 @@ export class InspectorService {
     if (mode === 'bump') this.bump();
     if (mode === 'displacement') this.displacement();
     if (mode === 'alpha') this.alpha();
-    this.engineService.setUpdate();
   }
 
   private full() {
     this.engineService.setPostProcessing(true);
     if (this.fullMaterial) this.sceneService.model.material = this.fullMaterial;
-    console.log('add  model to scene');
     this.sceneService.scene.add(this.sceneService.model);
   }
 
   private wireframe() {
+    // TODO this lags... but how does LineSegments not work?
+    // TODO lines are invisiable at certain view angles
+    // TODO not all edges are drawn (e.g. visbile when importing a cube)
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     const model = this.sceneService.model.clone(true);
-    const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
-    group.add(filler);
-    model.geometry = new THREE.WireframeGeometry(model.geometry);
-    const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
-    const wireframe = new THREE.LineSegments(model.geometry, material);
-    group.add(wireframe);
-    this.copyTransforms(this.sceneService.model, group);
+
+    // TODO do this only if obj was imported
+    if (this.objParser.points.length) {
+      const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
+      group.add(filler);
+      const indices = this.objParser.indices;
+      for (let i = 0; i < indices.length; i += 2) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+          this.objParser.points[indices[i]],
+          this.objParser.points[indices[i + 1]],
+        ]);
+        const line = new THREE.Line(
+          geometry,
+          new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1}),
+        );
+        group.add(line);
+      }
+      console.log(group);
+    } else {
+      const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
+      group.add(filler);
+      model.geometry = new THREE.WireframeGeometry(model.geometry);
+      const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
+      const wireframe = new THREE.LineSegments(model.geometry, material);
+      group.add(wireframe);
+      this.copyTransforms(this.sceneService.model, group);
+    }
     this.sceneService.scene.add(group);
   }
 

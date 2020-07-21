@@ -10,6 +10,18 @@ import {LoaderService} from './loader.service';
 
 // TODO 2d texture viewer
 // TODO performance optimizations (e.g. don't render on still frame)
+// TODO handle unsupported browsers / devices
+// TODO consider 3d loading spinner
+// TODO consider adding someting when notion is looded yet
+// TODO look at this debug inspector for inspiration https://www.babylonjs.com/demos/pbrglossy/
+// TODO graphics settings (quality)
+// TODO sharpness
+// TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
+// TODO nodes https://threejs.org/examples/?q=post#webgl_postprocessing_nodes
+// TODO higher fov while zooming in
+// TODO loading bar
+// TODO load over the wire
+// TODO encrypt model
 
 @Component({
   selector: 'app-viewer',
@@ -22,12 +34,13 @@ import {LoaderService} from './loader.service';
         ></app-inspector-gui>
       </div>
 
+      <div class="upload-btn-wrapper">
+        <button class="btn">Upload files</button>
+        <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
+      </div>
+      <!--
       <div class="gui">
-        <div class="upload-btn-wrapper">
-          <button class="btn">Upload files</button>
-          <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
-        </div>
-        <!--
+
         <div>
           <button (click)="toggleFullScreen()">Fullscreen</button>
           <div>
@@ -53,10 +66,15 @@ import {LoaderService} from './loader.service';
             />
           </div>
         </div>
+        </div>
         -->
-      </div>
       <div class="wrapper">
-        <canvas #rendererCanvas id="renderCanvas" [class.grabbing]="grabbing"></canvas>
+        <canvas
+          #rendererCanvas
+          id="renderCanvas"
+          [class.grabbing]="grabbing"
+          (dblclick)="onDoubleClick($event)"
+        ></canvas>
       </div>
     </div>
   `,
@@ -79,23 +97,12 @@ import {LoaderService} from './loader.service';
         cursor: grabbing;
       }
 
-      .gui {
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        left: 0;
-        background: white;
-        height: 80px;
-        display: flex;
-        flex-direction: row;
-      }
-
       .upload-btn-wrapper {
         cursor: pointer;
-        position: relative;
+        position: absolute;
         overflow: hidden;
         display: inline-block;
-        cursor: pointer;
+        top: 0;
       }
       .btn {
         color: white;
@@ -123,10 +130,6 @@ export class ViewerComponent implements AfterViewInit {
 
   private clearColor = new THREE.Color(0xeeeeee);
 
-  // TODO sharpness
-  // TODO dof https://threejs.org/examples/#webgl_postprocessing_dof2
-  // TODO nodes https://threejs.org/examples/?q=post#webgl_postprocessing_nodes
-
   constructor(
     public inspectorService: InspectorService,
     public sceneService: SceneService,
@@ -144,16 +147,14 @@ export class ViewerComponent implements AfterViewInit {
 
   @HostListener('document:keypress', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    // console.log(event.keyCode);
     enum Keys {
       F = 102,
     }
     if (event.keyCode === Keys.F) this.engineService.focusObject(this.sceneService.model, true);
   }
 
-  @HostListener('document:dblclick', ['$event'])
-  handleMouseDown(event: MouseEvent) {
-    // TODO only if mouse over 3d canvas!
+  onDoubleClick(event) {
+    if (!this.sceneService.model) return;
     const x = event.clientX,
       y = event.clientY;
     this.mouse.x = (x / window.innerWidth) * 2 - 1;
@@ -163,18 +164,16 @@ export class ViewerComponent implements AfterViewInit {
     raycaster.setFromCamera(this.mouse, this.engineService.camera);
     let intersects = [];
     raycaster.intersectObject(this.sceneService.model, false, intersects);
-    if (!intersects.length) {
-      console.log('no intersestions');
-      return;
-    }
+    if (!intersects.length) return;
+
     let min;
     for (const i of intersects) {
       if (!min || i.distance < min.distance) min = i;
     }
-    // TODO zoom in a little bit
-    this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
-    // TODO idea: set small object with animation to pivot point
     // TODO animation https://stackoverflow.com/questions/18401213/
+    this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
+    this.engineService.controls.dollyIn(0.5);
+    // TODO idea: set small object with animation to pivot point
   }
 
   onModeChanged(mode: string) {
@@ -217,7 +216,7 @@ export class ViewerComponent implements AfterViewInit {
     const pmremGenerator = new THREE.PMREMGenerator(this.engineService.renderer);
     pmremGenerator.compileEquirectangularShader();
     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-    this.sceneService.scene.background = envMap;
+    // this.sceneService.scene.background = envMap;
     this.sceneService.scene.environment = envMap;
     // TODO rotate env and adjust exposure
     // TODO set as background + blur background

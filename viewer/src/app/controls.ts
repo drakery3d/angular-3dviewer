@@ -328,7 +328,7 @@ class Controls extends EventDispatcher {
     }
   }
 
-  private dollyIn(dollyScale) {
+  /* private */ dollyIn(dollyScale) {
     if (this.object.isPerspectiveCamera) {
       this.scale *= dollyScale;
     } else if ((this.object as any).isOrthographicCamera) {

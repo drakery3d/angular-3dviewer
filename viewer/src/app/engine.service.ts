@@ -4,6 +4,7 @@ import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import {SSAOPass} from 'three/examples/jsm/postprocessing/SSAOPass';
+// import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 import {OrbitControls} from './controls';
 import {SceneService} from './scene.service';
@@ -22,8 +23,6 @@ export class EngineService implements OnDestroy {
   private enablePostProcessing = true;
   private renderTarget: THREE.WebGLMultisampleRenderTarget;
   private renderPass: RenderPass;
-
-  private update = true;
 
   constructor(private sceneService: SceneService, private ngZone: NgZone) {}
 
@@ -60,12 +59,9 @@ export class EngineService implements OnDestroy {
 
     // TODO smooth zoom
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.addEventListener('change', () => {
-      this.update = true;
-    });
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
-    this.controls.rotateSpeed = 1.5;
+    this.controls.rotateSpeed = 2;
     this.controls.panSpeed = 1.5;
     this.controls.zoomSpeed = 3;
 
@@ -73,6 +69,9 @@ export class EngineService implements OnDestroy {
     /**
      * TODO don't use multisampling on low-end devices, because of performane
      * https://youtu.be/pFKalA-fd34
+     *
+     * TODO we can't use msaa on browsers, that don't support webgl2
+     * caniuse.com/#search=webgl2
      */
     this.renderTarget = new THREE.WebGLMultisampleRenderTarget(size.width, size.height, {
       format: THREE.RGBFormat,
@@ -96,15 +95,10 @@ export class EngineService implements OnDestroy {
     } else {
       this.composer.passes = [this.renderPass];
     }
-    console.log(enabled ? 'enabled' : 'disabled', 'post processing');
   }
 
   setBackground(color: THREE.Color) {
     this.sceneService.scene.background = color;
-  }
-
-  setUpdate() {
-    this.update = true;
   }
 
   focusObject(object: THREE.Object3D, maintainAngle = false) {
@@ -143,10 +137,7 @@ export class EngineService implements OnDestroy {
 
       this.controls.update(); // for control.damping
 
-      if (this.update) {
-        this.composer.render();
-        this.update = false;
-      }
+      this.composer.render();
     });
   }
 
@@ -164,8 +155,6 @@ export class EngineService implements OnDestroy {
       }
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
-
-      this.update = true;
     });
   }
 }
