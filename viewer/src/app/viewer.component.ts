@@ -8,6 +8,9 @@ import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
 
+// TODO 2d texture viewer
+// TODO performance optimizations (e.g. don't render on still frame)
+
 @Component({
   selector: 'app-viewer',
   template: `
@@ -24,6 +27,7 @@ import {LoaderService} from './loader.service';
           <button class="btn">Upload files</button>
           <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
         </div>
+        <!--
         <div>
           <button (click)="toggleFullScreen()">Fullscreen</button>
           <div>
@@ -49,6 +53,7 @@ import {LoaderService} from './loader.service';
             />
           </div>
         </div>
+        -->
       </div>
       <div class="wrapper">
         <canvas #rendererCanvas id="renderCanvas" [class.grabbing]="grabbing"></canvas>

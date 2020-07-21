@@ -20,6 +20,10 @@ export class EngineService implements OnDestroy {
   private composer: EffectComposer;
   private frameId: number;
   private enablePostProcessing = true;
+  private renderTarget: THREE.WebGLMultisampleRenderTarget;
+  private renderPass: RenderPass;
+
+  private update = true;
 
   constructor(private sceneService: SceneService, private ngZone: NgZone) {}
 
@@ -28,6 +32,8 @@ export class EngineService implements OnDestroy {
   }
 
   createScene(canvas: ElementRef<HTMLCanvasElement>) {
+    window.addEventListener('resize', () => this.resize());
+
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.canvas = canvas.nativeElement;
@@ -52,33 +58,53 @@ export class EngineService implements OnDestroy {
     );
     this.sceneService.scene.add(this.camera);
 
+    // TODO smooth zoom
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.addEventListener('change', () => {
+      this.update = true;
+    });
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.1;
     this.controls.rotateSpeed = 1.5;
     this.controls.panSpeed = 1.5;
     this.controls.zoomSpeed = 3;
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.08;
 
-    this.composer = new EffectComposer(this.renderer);
-    const renderPass = new RenderPass(this.sceneService.scene, this.camera);
-    this.composer.addPass(renderPass);
-
+    const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    /**
+     * TODO don't use multisampling on low-end devices, because of performane
+     * https://youtu.be/pFKalA-fd34
+     */
+    this.renderTarget = new THREE.WebGLMultisampleRenderTarget(size.width, size.height, {
+      format: THREE.RGBFormat,
+      stencilBuffer: false,
+    });
+    this.composer = new EffectComposer(this.renderer, this.renderTarget);
+    this.renderPass = new RenderPass(this.sceneService.scene, this.camera);
     this.ssaoPass = new SSAOPass(this.sceneService.scene, this.camera, width, height);
     this.ssaoPass.kernelRadius = 16;
-    this.composer.addPass(this.ssaoPass);
-
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.1, 0.4, 0.85);
-    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(this.renderPass);
   }
 
   setPostProcessing(enabled: boolean) {
     if (this.enablePostProcessing === enabled) return;
     this.enablePostProcessing = enabled;
+    if (enabled) {
+      this.composer.addPass(this.renderPass);
+      this.composer.addPass(this.ssaoPass);
+      this.composer.addPass(this.bloomPass);
+    } else {
+      this.composer.passes = [this.renderPass];
+    }
     console.log(enabled ? 'enabled' : 'disabled', 'post processing');
   }
 
   setBackground(color: THREE.Color) {
     this.sceneService.scene.background = color;
+  }
+
+  setUpdate() {
+    this.update = true;
   }
 
   focusObject(object: THREE.Object3D, maintainAngle = false) {
@@ -113,16 +139,15 @@ export class EngineService implements OnDestroy {
 
   animate() {
     this.ngZone.runOutsideAngular(() => {
-      this.render();
-      window.addEventListener('resize', () => this.resize());
-    });
-  }
+      this.frameId = requestAnimationFrame(() => this.animate());
 
-  private render() {
-    this.frameId = requestAnimationFrame(() => this.render());
-    this.controls.update(); // for control.damping
-    if (this.enablePostProcessing) this.composer.render();
-    else this.renderer.render(this.sceneService.scene, this.camera);
+      this.controls.update(); // for control.damping
+
+      if (this.update) {
+        this.composer.render();
+        this.update = false;
+      }
+    });
   }
 
   private resize() {
@@ -133,10 +158,14 @@ export class EngineService implements OnDestroy {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
 
-      this.bloomPass.setSize(width, height);
-      this.ssaoPass.setSize(width, height);
+      if (this.enablePostProcessing) {
+        this.bloomPass.setSize(width, height);
+        this.ssaoPass.setSize(width, height);
+      }
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
+
+      this.update = true;
     });
   }
 }

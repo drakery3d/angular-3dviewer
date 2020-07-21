@@ -13,6 +13,7 @@ export class InspectorService {
 
   constructor(private engineService: EngineService, private sceneService: SceneService) {}
 
+  // TODO keyboard shurtcuts for switching
   changeMode(mode: string) {
     if (this.mode === mode) return;
     console.log(this.mode, '->', mode);
@@ -28,7 +29,8 @@ export class InspectorService {
     if (mode === 'wireframe') this.wireframe();
     if (mode === 'vertices') this.vertices();
     if (mode === 'mesh') this.mesh();
-    if (mode === 'face_normals') this.faceNormals();
+    if (mode === 'vertex_normals') this.vertexNormals();
+    if (mode === 'uv') this.uv();
 
     if (mode === 'albedo') this.albedo();
     if (mode === 'normal') this.normal();
@@ -44,6 +46,7 @@ export class InspectorService {
     if (mode === 'bump') this.bump();
     if (mode === 'displacement') this.displacement();
     if (mode === 'alpha') this.alpha();
+    this.engineService.setUpdate();
   }
 
   private full() {
@@ -67,6 +70,11 @@ export class InspectorService {
     this.sceneService.scene.add(group);
   }
 
+  private uv() {
+    this.engineService.setPostProcessing(false);
+    // TODO render uv-checker board onto model
+  }
+
   private vertices() {
     this.engineService.setPostProcessing(false);
     // TODO only vertices mode
@@ -84,22 +92,22 @@ export class InspectorService {
     this.sceneService.scene.add(mesh);
   }
 
-  private faceNormals() {
+  private vertexNormals() {
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     group.add(this.sceneService.model);
 
     const size = this.sceneService.calcMaxObjectSize() / 200;
-    // TODO face normals instead
-    const normals = new VertexNormalsHelper(this.sceneService.model, size, 0x000000);
+    // TODO determine helper line color based on scene
+    const normals = new VertexNormalsHelper(this.sceneService.model, size, 0x56c860);
     group.add(normals);
     const model = this.sceneService.model.clone(true);
     model.geometry = new THREE.WireframeGeometry(this.sceneService.model.geometry);
-    const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
-    const wireframe = new THREE.LineSegments(model.geometry, material);
-    this.copyTransforms(this.sceneService.model, wireframe);
-    group.add(wireframe);
     this.sceneService.scene.add(group);
+  }
+
+  private faceNormals() {
+    // TODO face normals, too
   }
 
   private albedo() {
