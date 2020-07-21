@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import {GLTFLoader, GLTF} from 'three/examples/jsm/loaders/GLTFLoader';
 import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
 import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
+import {OBJLoader2Parser} from 'three/examples/jsm/loaders/obj2/OBJLoader2Parser';
 
 import {SceneService} from './scene.service';
 import {EngineService} from './engine.service';
 import {InspectorService} from './inspector.service';
+import {OBJParserService} from './obj-parser';
 
 @Injectable()
 export class LoaderService {
@@ -19,9 +21,16 @@ export class LoaderService {
     private sceneService: SceneService,
     private engineService: EngineService,
     private inspectorService: InspectorService,
+    private objParser: OBJParserService,
   ) {}
 
   async loadObj(objFile: File, mtlFile: File, images: File[]) {
+    const reader2 = new FileReader();
+    reader2.addEventListener('load', e => {
+      this.objParser.parse(e.target.result.toString());
+    });
+    reader2.readAsText(objFile);
+
     const [objFileUrl, mtlFileUrl] = await Promise.all([
       this.getTempFileUrl(objFile),
       mtlFile ? this.getTempFileUrl(mtlFile) : null,
@@ -67,8 +76,6 @@ export class LoaderService {
       }
     }
     this.sceneService.model.material = material;
-    console.log(this.sceneService.model);
-
     this.loadDone();
   }
 
@@ -78,10 +85,10 @@ export class LoaderService {
     // TODO handle multiple children
     gltf.scene.children[0].traverse(c => {
       if ((c as any).isMesh) {
-        c.castShadow = true;
-        c.receiveShadow = true;
-        this.sceneService.model = c as THREE.Mesh;
-
+        const mesh = c as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        this.sceneService.model = mesh;
         // TODO try to load textures (but don't override)
       }
     });
@@ -105,7 +112,10 @@ export class LoaderService {
   private async getTempFileUrl(file: File): Promise<string> {
     return new Promise(res => {
       const reader = new FileReader();
-      reader.onload = e => res(e.target.result.toString());
+      reader.onload = e => {
+        console.log(e);
+        res(e.target.result.toString());
+      };
       reader.readAsDataURL(file);
     });
   }
