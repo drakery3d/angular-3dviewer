@@ -25,10 +25,13 @@ import {LoaderService} from './loader.service';
 // TODO view boundary https://yomotsu.github.io/camera-controls/examples/boundary.html
 // TODO https://twitter.com/jackrugile/status/966440290885156864
 // https://discourse.threejs.org/t/is-it-possible-to-reduce-memory-consumption-with-new-gltf-format/3552/4?u=flolo
+// TODO validate gltf https://github.com/KhronosGroup/glTF-Validator
+// TODO support .zip files
 
 @Component({
   selector: 'app-viewer',
   template: `
+    <app-fullscreen-dropzone (filesAdded)="onFiles($event)"></app-fullscreen-dropzone>
     <div class="container">
       <div class="ui" *ngIf="sceneService.model">
         <app-inspector-gui
@@ -37,10 +40,6 @@ import {LoaderService} from './loader.service';
         ></app-inspector-gui>
       </div>
 
-      <div class="upload-btn-wrapper">
-        <button class="btn">Upload files</button>
-        <input class="custom-file-input" type="file" multiple (change)="onInputChanged($event)" />
-      </div>
       <!--
       <div class="gui">
 
@@ -102,29 +101,6 @@ import {LoaderService} from './loader.service';
       .grabbing {
         cursor: grabbing;
       }
-
-      .upload-btn-wrapper {
-        cursor: pointer;
-        position: absolute;
-        overflow: hidden;
-        display: inline-block;
-        top: 0;
-      }
-      .btn {
-        color: white;
-        background-color: #57c860;
-        padding: 8px 20px;
-        font-weight: bold;
-        outline: none;
-        border: 0;
-      }
-      .upload-btn-wrapper input[type='file'] {
-        font-size: 100px;
-        position: absolute;
-        left: 0;
-        top: 0;
-        opacity: 0;
-      }
     `,
   ],
 })
@@ -157,6 +133,37 @@ export class ViewerComponent implements AfterViewInit {
     if (event.keyCode === Keys.F) this.engineService.controls.fitTo(this.sceneService.model, true);
   }
 
+  async onFiles(files: File[]) {
+    console.log(files);
+    const extensions = files.map(f => f.name.split('.').pop());
+
+    if (extensions.includes('gltf') || extensions.includes('glb')) {
+      let root: File = undefined;
+      let rootPath: string;
+      files.forEach(file => {
+        const extension = file.name.split('.').pop();
+        if (extensions.includes('gltf') || extension.includes('glb')) {
+          if (root !== undefined)
+            console.warn('Mutliple gltf files are not supported. Only one will be loaded!');
+          root = file;
+          rootPath = URL.createObjectURL(file);
+        }
+      });
+      // NOW new gltf loader which considers all children
+      // this.loaderService.loadGltf2(root, rootPath, files);
+      await this.loaderService.loadGltf(root);
+      return;
+    }
+
+    if (extensions.includes('obj')) {
+      const obj = files.filter(f => f.name.split('.').pop() === 'obj');
+      const mtl = files.filter(f => f.name.split('.').pop() === 'mtl');
+      const images = files.filter(f => f.type.includes('image'));
+      await this.loaderService.loadObj(obj[0], mtl[0], images);
+      return;
+    }
+  }
+
   onMouseDown() {
     this.grabbing = true;
   }
@@ -184,9 +191,37 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.ssaoPass.kernelRadius = event.path[0].value;
   }
 
-  async onInputChanged(event) {
-    const files: File[] = Array.from(event.target.files);
-    const gltf = files.filter(
+  /* async onInputChanged(event) {
+    event.stopPropagation();
+    event.preventDefault();
+    const files: File[] = Array.from(event.dataTransfer.files || []);
+    const items = Array.from(event.dataTransfer.items || []);
+
+    console.log({files, items});
+    // const files: File[] = Array.from(event.target.files);
+    const extensions = files.map(f => f.name.split('.').pop());
+
+    if (extensions.includes('gltf') || extensions.includes('glb')) {
+      let root: File = undefined;
+      let rootPath: string;
+      files.forEach(file => {
+        const extension = file.name.split('.').pop();
+        if (extensions.includes('gltf') || extension.includes('glb')) {
+          if (root !== undefined)
+            console.warn('Mutliple gltf files are not supported. Only one will be loaded!');
+          root = file;
+          rootPath = URL.createObjectURL(file);
+        }
+      });
+      this.loaderService.loadGltf2(root, rootPath, files);
+      return;
+    }
+
+    if (extensions.includes('obj')) {
+      return;
+    }
+
+       const gltf = files.filter(
       f => f.name.split('.').pop() === 'gltf' || f.name.split('.').pop() === 'glb',
     );
     const obj = files.filter(f => f.name.split('.').pop() === 'obj');
@@ -201,7 +236,7 @@ export class ViewerComponent implements AfterViewInit {
     if (obj.length) {
       await this.loaderService.loadObj(obj[0], mtl[0], images);
     }
-  }
+  } */
 
   toggleFullScreen() {
     this.fullscreenService.toggle();

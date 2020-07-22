@@ -73,7 +73,10 @@ export class InspectorService {
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     const model = this.sceneService.model.clone(true);
-    const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
+    const filler = new THREE.Mesh(
+      model.geometry,
+      new THREE.MeshBasicMaterial({side: THREE.DoubleSide}),
+    );
     group.add(filler);
 
     const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
@@ -208,6 +211,7 @@ export class InspectorService {
     const material = new THREE.MeshBasicMaterial();
     if (this.fullMaterial.aoMap) material.map = this.fullMaterial.aoMap;
     else material.color = new THREE.Color(0xffffff);
+    this.sceneService.scene.background = this.fullMaterial.aoMap;
     this.sceneService.model.material = material;
     this.sceneService.scene.add(this.sceneService.model);
   }

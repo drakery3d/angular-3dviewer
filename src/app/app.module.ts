@@ -10,9 +10,17 @@ import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
 import {OBJParserService} from './obj-parser';
+import {DropZoneDirective} from './dropzone.directive';
+import {FullscreenDropzone} from './fullscreen-dropzone.component';
 
 @NgModule({
-  declarations: [AppComponent, ViewerComponent, InspectorGuiComnponent],
+  declarations: [
+    AppComponent,
+    ViewerComponent,
+    InspectorGuiComnponent,
+    DropZoneDirective,
+    FullscreenDropzone,
+  ],
   imports: [BrowserModule],
   providers: [
     FullscreenService,

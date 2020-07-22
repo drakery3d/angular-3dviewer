@@ -79,21 +79,37 @@ export class LoaderService {
     this.loadDone();
   }
 
+  async loadGltf2(gltfFile: File, rootPath: string, allFiles: File[]) {
+    this.sceneService.clear();
+  }
+
   async loadGltf(file: File) {
     this.sceneService.clear();
     const fileUrl = await this.getTempFileUrl(file);
     const gltf: GLTF = await this.gltfLoader.loadAsync(fileUrl.toString());
     // TODO handle multiple children (e.g. test with cactus model)
+    // console.log(gltf.scene);
+
+    this.printGraph(gltf.scene);
+
     gltf.scene.children[0].traverse(c => {
       if ((c as any).isMesh) {
         const mesh = c as THREE.Mesh;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.sceneService.model = mesh;
+        // this.sceneService.model.add(mesh);
+        // console.log(mesh);
         // TODO try to load textures (but don't override)
       }
     });
     this.loadDone();
+  }
+
+  private printGraph(node) {
+    console.group(' <' + node.type + '> ' + node.name);
+    node.children.forEach(child => this.printGraph(child));
+    console.groupEnd();
   }
 
   private async laodLocalTextureMap(file: File) {

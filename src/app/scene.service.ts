@@ -4,7 +4,7 @@ import * as THREE from 'three';
 @Injectable()
 export class SceneService {
   scene: THREE.Scene;
-  model: THREE.Mesh;
+  model: THREE.Mesh = new THREE.Mesh();
 
   private maxSize: number;
 
