@@ -23,6 +23,8 @@ import {VirtualTimeScheduler} from 'rxjs';
 // TODO loading bar
 // TODO load over the wire
 // TODO encrypt model
+// TODO quick buttons for top,bottom, etc view https://user-images.githubusercontent.com/232036/30819012-f97e7cac-a1e2-11e7-89d9-229fb802b6cc.gif
+// TODO view boundary https://yomotsu.github.io/camera-controls/examples/boundary.html
 
 @Component({
   selector: 'app-viewer',
@@ -75,6 +77,8 @@ import {VirtualTimeScheduler} from 'rxjs';
           id="renderCanvas"
           [class.grabbing]="grabbing"
           (dblclick)="onDoubleClick($event)"
+          (mousedown)="onMouseDown()"
+          (mouseup)="onMouseUp()"
         ></canvas>
       </div>
     </div>
@@ -125,11 +129,11 @@ import {VirtualTimeScheduler} from 'rxjs';
   ],
 })
 export class ViewerComponent implements AfterViewInit {
+  grabbing = false;
+
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
-
   private mouse = new THREE.Vector2();
-
   private clearColor = new THREE.Color(0xeeeeee);
 
   constructor(
@@ -152,7 +156,14 @@ export class ViewerComponent implements AfterViewInit {
     enum Keys {
       F = 102,
     }
-    if (event.keyCode === Keys.F) this.engineService.focusObject(this.sceneService.model, true);
+    if (event.keyCode === Keys.F) this.engineService.controls.fitTo(this.sceneService.model, true);
+  }
+
+  onMouseDown() {
+    this.grabbing = true;
+  }
+  onMouseUp() {
+    this.grabbing = false;
   }
 
   onDoubleClick(event) {
@@ -172,10 +183,8 @@ export class ViewerComponent implements AfterViewInit {
     for (const i of intersects) {
       if (!min || i.distance < min.distance) min = i;
     }
-    // TODO animation https://stackoverflow.com/questions/18401213/
-    this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
-    this.engineService.controls.dollyIn(0.95);
-    // TODO idea: set small object with animation to pivot point
+    this.engineService.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
+    this.engineService.controls.dolly(min.distance / 2, true);
   }
 
   onModeChanged(mode: string) {
@@ -207,10 +216,6 @@ export class ViewerComponent implements AfterViewInit {
     if (obj.length) {
       await this.loaderService.loadObj(obj[0], mtl[0], images);
     }
-  }
-
-  get grabbing() {
-    return this.engineService.controls ? this.engineService.controls.grabbing : false;
   }
 
   private async createTestScene() {

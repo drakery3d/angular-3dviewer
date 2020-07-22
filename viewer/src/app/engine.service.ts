@@ -4,6 +4,9 @@ import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import {SSAOPass} from 'three/examples/jsm/postprocessing/SSAOPass';
+import CameraControls from 'camera-controls';
+
+CameraControls.install({THREE: THREE});
 // import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
 import {OrbitControls} from './controls';
@@ -11,12 +14,13 @@ import {SceneService} from './scene.service';
 
 @Injectable()
 export class EngineService implements OnDestroy {
-  controls: OrbitControls;
+  controls: CameraControls;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   bloomPass: UnrealBloomPass;
   ssaoPass: SSAOPass;
 
+  private clock = new THREE.Clock();
   private canvas: HTMLCanvasElement;
   private composer: EffectComposer;
   private frameId: number;
@@ -53,18 +57,18 @@ export class EngineService implements OnDestroy {
     this.camera = new THREE.PerspectiveCamera(
       30,
       this.canvas.offsetWidth / this.canvas.offsetHeight,
-      0.1,
+      0.001,
       1000,
     );
     this.sceneService.scene.add(this.camera);
 
-    // TODO smooth zoom
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.1;
-    this.controls.rotateSpeed = 2;
-    this.controls.panSpeed = 1.5;
-    this.controls.zoomSpeed = 3;
+    this.controls = new CameraControls(this.camera, this.renderer.domElement);
+    this.controls.polarRotateSpeed = 3;
+    this.controls.dollySpeed = 2;
+    this.controls.truckSpeed = 3;
+    this.controls.dampingFactor = 0.2;
+    this.controls.draggingDampingFactor = 0.15;
+    this.controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;
 
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     /**
@@ -102,43 +106,15 @@ export class EngineService implements OnDestroy {
     this.sceneService.scene.background = color;
   }
 
-  focusObject(object: THREE.Object3D, maintainAngle = false) {
-    this.ngZone.runOutsideAngular(() => {
-      const box = new THREE.Box3();
-      box.expandByObject(object);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-
-      const maxSize = Math.max(size.x, size.y, size.z);
-      const fitHeightDistance = maxSize / (2 * Math.atan((Math.PI * this.camera.fov) / 360));
-      const fitWidthDistance = fitHeightDistance / this.camera.aspect;
-      const distance = Math.max(fitHeightDistance, fitWidthDistance);
-
-      const direction = new THREE.Vector3(0, 0, -1)
-        .clone()
-        .sub(maintainAngle ? this.camera.position : new THREE.Vector3())
-        .normalize()
-        .multiplyScalar(distance);
-
-      this.controls.maxDistance = distance * 10;
-      this.controls.target.copy(center);
-
-      this.camera.near = distance / 100;
-      this.camera.far = distance * 100;
-      this.camera.updateProjectionMatrix();
-      this.camera.position.copy(this.controls.target).sub(direction);
-
-      this.controls.update();
-    });
-  }
-
   animate() {
     this.ngZone.runOutsideAngular(() => {
+      const delta = this.clock.getDelta();
+      const hasControlsUpdated = this.controls.update(delta);
+
       this.frameId = requestAnimationFrame(() => this.animate());
-
-      this.controls.update(); // for control.damping
-
-      this.composer.render();
+      if (hasControlsUpdated) {
+        this.composer.render();
+      }
     });
   }
 
