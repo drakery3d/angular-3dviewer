@@ -26,7 +26,7 @@ import {Component, Output, EventEmitter, Input} from '@angular/core';
   styles: [
     `
       .container {
-        overflow-y: scroll;
+        // overflow-y: scroll;
       }
       .mode {
         padding: 6px 10px;
