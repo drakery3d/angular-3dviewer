@@ -6,6 +6,8 @@ export class OBJParserService {
   points: THREE.Vector3[] = [];
   indices: number[] = [];
 
+  // TODO this doesn't work on all obj's
+  // https://i.imgur.com/EH8EH0M.png
   parse(content: string) {
     let buffer = new Array(128);
 
@@ -61,21 +63,28 @@ export class OBJParserService {
         bufferLength = bufferPointer - 1;
         if (slashesCount === 0) {
           // "f vertex ..."
-          console.log('only vertex');
+          for (let i = 1; i < buffer.length; i++) {
+            if (buffer[i] === undefined) break;
+            this.indices.push(buffer[i] - 1);
+          }
         } else if (bufferLength === slashesCount * 2) {
           // "f vertex/uv ..."
-          console.log('vertex/uv');
+          for (let i = 1; i < buffer.length; i += 2) {
+            if (buffer[i] === undefined) break;
+            this.indices.push(buffer[i] - 1);
+          }
         } else if (bufferLength * 2 === slashesCount * 3) {
           // "f vertex/uv/normal ..."
-          console.log('vertex/uv/normal');
-          // console.log(buffer);
-          this.indices.push(buffer[1] - 1);
-          this.indices.push(buffer[4] - 1);
-          this.indices.push(buffer[7] - 1);
-          this.indices.push(buffer[10] - 1);
+          for (let i = 1; i < buffer.length; i += 3) {
+            if (buffer[i] === undefined) break;
+            this.indices.push(buffer[i] - 1);
+          }
         } else {
           // "f vertex//normal ..."
-          console.log('vertex//normal');
+          for (let i = 1; i < buffer.length; i += 2) {
+            if (buffer[i] === undefined) break;
+            this.indices.push(buffer[i] - 1);
+          }
         }
 
         break;

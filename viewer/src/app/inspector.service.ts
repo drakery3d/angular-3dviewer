@@ -65,33 +65,29 @@ export class InspectorService {
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     const model = this.sceneService.model.clone(true);
+    const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
+    group.add(filler);
+
+    const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
 
     // TODO do this only if obj was imported
+    // TODO remove lines clipping with mesh
     if (this.objParser.points.length) {
-      const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
-      group.add(filler);
       const indices = this.objParser.indices;
+      let sortedPoints = [];
       for (let i = 0; i < indices.length; i += 2) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-          this.objParser.points[indices[i]],
-          this.objParser.points[indices[i + 1]],
-        ]);
-        const line = new THREE.Line(
-          geometry,
-          new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1}),
-        );
-        group.add(line);
+        sortedPoints.push(this.objParser.points[indices[i]], this.objParser.points[indices[i + 1]]);
       }
-      console.log(group);
+      const geometry = new THREE.BufferGeometry().setFromPoints(sortedPoints);
+      const lines = new THREE.LineSegments(geometry, material);
+      group.add(lines);
     } else {
-      const filler = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial());
-      group.add(filler);
       model.geometry = new THREE.WireframeGeometry(model.geometry);
-      const material = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
       const wireframe = new THREE.LineSegments(model.geometry, material);
       group.add(wireframe);
       this.copyTransforms(this.sceneService.model, group);
     }
+
     this.sceneService.scene.add(group);
   }
 

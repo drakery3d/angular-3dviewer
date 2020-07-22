@@ -172,7 +172,7 @@ export class ViewerComponent implements AfterViewInit {
     }
     // TODO animation https://stackoverflow.com/questions/18401213/
     this.engineService.controls.target.set(min.point.x, min.point.y, min.point.z);
-    this.engineService.controls.dollyIn(0.5);
+    this.engineService.controls.dollyIn(0.95);
     // TODO idea: set small object with animation to pivot point
   }
 
