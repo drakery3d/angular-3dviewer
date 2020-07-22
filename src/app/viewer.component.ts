@@ -23,6 +23,8 @@ import {LoaderService} from './loader.service';
 // TODO encrypt model
 // TODO quick buttons for top,bottom, etc view https://user-images.githubusercontent.com/232036/30819012-f97e7cac-a1e2-11e7-89d9-229fb802b6cc.gif
 // TODO view boundary https://yomotsu.github.io/camera-controls/examples/boundary.html
+// TODO https://twitter.com/jackrugile/status/966440290885156864
+// https://discourse.threejs.org/t/is-it-possible-to-reduce-memory-consumption-with-new-gltf-format/3552/4?u=flolo
 
 @Component({
   selector: 'app-viewer',

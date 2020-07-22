@@ -98,11 +98,6 @@ export class InspectorService {
     this.sceneService.scene.add(group);
   }
 
-  private uv() {
-    this.engineService.setPostProcessing(false);
-    // TODO render uv-checker board onto model
-  }
-
   private vertices() {
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
@@ -151,6 +146,19 @@ export class InspectorService {
     const model = this.sceneService.model.clone(true);
     model.geometry = new THREE.WireframeGeometry(this.sceneService.model.geometry);
     this.sceneService.scene.add(group);
+  }
+
+  private uv() {
+    // TODO checker pattern is streched indefinitely on helmet model... maybe because of udims?
+    this.engineService.setPostProcessing(false);
+    this.prepareShaderMode();
+    const loader = new THREE.TextureLoader();
+    const material = new THREE.MeshBasicMaterial({
+      map: loader.load('assets/uv-grid.png'),
+      side: THREE.DoubleSide,
+    });
+    this.sceneService.model.material = material;
+    this.sceneService.scene.add(this.sceneService.model);
   }
 
   private albedo() {
