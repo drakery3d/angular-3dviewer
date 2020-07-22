@@ -7,6 +7,7 @@ import {FullscreenService} from './fullscreen.service';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
+import {VirtualTimeScheduler} from 'rxjs';
 
 // TODO 2d texture viewer
 // TODO performance optimizations (e.g. don't render on still frame)
@@ -88,6 +89,7 @@ import {LoaderService} from './loader.service';
         right: 0;
         top: 0;
         bottom: 0;
+        background: rgba(255, 255, 2555, 0.75);
       }
 
       canvas {
@@ -212,15 +214,27 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   private async createTestScene() {
-    const texture = await new RGBELoader().loadAsync('assets/studio_small_03_1k.hdr');
+    // TODO rotate env and adjust exposure
+    /**
+     * TODO blur background (no native solution)
+     * https://discourse.threejs.org/t/how-to-blur-a-background/8558/20
+     * we probably have to prerender blurred hdris
+     */
+    const [blurry, sharp] = await Promise.all([
+      this.loadEnvMap('assets/studio_small_03_1k_blur.hdr'),
+      this.loadEnvMap('assets/studio_small_03_1k.hdr'),
+    ]);
+    this.sceneService.scene.background = blurry;
+    this.sceneService.scene.environment = sharp;
+  }
+
+  private async loadEnvMap(path: string) {
+    const texture = await new RGBELoader().loadAsync(path);
     const pmremGenerator = new THREE.PMREMGenerator(this.engineService.renderer);
     pmremGenerator.compileEquirectangularShader();
     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-    // this.sceneService.scene.background = envMap;
-    this.sceneService.scene.environment = envMap;
-    // TODO rotate env and adjust exposure
-    // TODO set as background + blur background
     pmremGenerator.dispose();
+    return envMap;
   }
 
   toggleFullScreen() {

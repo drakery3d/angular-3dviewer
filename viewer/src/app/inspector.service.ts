@@ -59,7 +59,6 @@ export class InspectorService {
   }
 
   private wireframe() {
-    // TODO this lags... but how does LineSegments not work?
     // TODO lines are invisiable at certain view angles
     // TODO not all edges are drawn (e.g. visbile when importing a cube)
     this.engineService.setPostProcessing(false);
@@ -87,7 +86,6 @@ export class InspectorService {
       group.add(wireframe);
       this.copyTransforms(this.sceneService.model, group);
     }
-
     this.sceneService.scene.add(group);
   }
 
@@ -97,8 +95,32 @@ export class InspectorService {
   }
 
   private vertices() {
-    this.engineService.setPostProcessing(false);
     // TODO only vertices mode
+    // https://threejs.org/examples/?q=spher#webgl_morphtargets_sphere
+    this.engineService.setPostProcessing(false);
+    const group = new THREE.Group();
+    const model = this.sceneService.model.clone(true);
+    const filler = new THREE.Mesh(
+      model.geometry,
+      new THREE.MeshBasicMaterial({transparent: true, opacity: 0.5}),
+    );
+    group.add(filler);
+    this.copyTransforms(this.sceneService.model, group);
+    this.sceneService.scene.add(group);
+
+    var pointsMaterial = new THREE.PointsMaterial({
+      size: 5,
+      sizeAttenuation: false,
+      map: new THREE.TextureLoader().load('assets/dot.png'),
+      alphaTest: 0.5,
+    });
+
+    var points = new THREE.Points(filler.geometry, pointsMaterial);
+
+    points.morphTargetInfluences = filler.morphTargetInfluences;
+    points.morphTargetDictionary = filler.morphTargetDictionary;
+
+    filler.add(points);
   }
 
   private mesh() {
@@ -118,7 +140,7 @@ export class InspectorService {
     const group = new THREE.Group();
     group.add(this.sceneService.model);
 
-    const size = this.sceneService.calcMaxObjectSize() / 200;
+    const size = this.sceneService.calcMaxObjectSize() / 100;
     // TODO determine helper line color based on scene
     const normals = new VertexNormalsHelper(this.sceneService.model, size, 0x56c860);
     group.add(normals);

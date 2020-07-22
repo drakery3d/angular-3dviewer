@@ -5,8 +5,6 @@ import {Component, Output, EventEmitter, Input} from '@angular/core';
   selector: 'app-inspector-gui',
   template: `
     <div class="container">
-      <h3>Inspector</h3>
-      <h4>Modes</h4>
       <div
         *ngFor="let mode of modes"
         class="mode"
@@ -15,7 +13,6 @@ import {Component, Output, EventEmitter, Input} from '@angular/core';
       >
         {{ mode }}
       </div>
-      <h4>Maps</h4>
       <div
         *ngFor="let mode of shaderModes"
         class="mode"
@@ -30,7 +27,6 @@ import {Component, Output, EventEmitter, Input} from '@angular/core';
     `
       .container {
         overflow-y: scroll;
-        background: white;
       }
       .mode {
         padding: 6px 10px;
