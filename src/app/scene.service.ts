@@ -1,6 +1,5 @@
 import {Injectable} from '@angular/core';
 import * as THREE from 'three';
-import {OBJParserService} from './obj-parser';
 
 @Injectable()
 export class SceneService {
@@ -9,11 +8,8 @@ export class SceneService {
 
   private maxSize: number;
 
-  constructor(private objParser: OBJParserService) {}
-
   clear() {
     this.scene.remove(...this.scene.children);
-    this.objParser.reset();
   }
 
   calcMaxObjectSize() {
