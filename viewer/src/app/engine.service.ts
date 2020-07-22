@@ -28,6 +28,7 @@ export class EngineService implements OnDestroy {
 
   ngOnDestroy() {
     if (this.frameId != null) cancelAnimationFrame(this.frameId);
+    this.renderer.clippingPlanes;
   }
 
   createScene(canvas: ElementRef<HTMLCanvasElement>) {
