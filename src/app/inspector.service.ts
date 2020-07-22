@@ -57,6 +57,10 @@ export class InspectorService {
     this.engineService.needsUpdate = true;
   }
 
+  reset() {
+    this.fullMaterial = undefined;
+  }
+
   private full() {
     if (this.fullMaterial) this.sceneService.model.material = this.fullMaterial;
     this.sceneService.scene.add(this.sceneService.model);
