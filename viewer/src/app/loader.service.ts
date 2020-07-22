@@ -3,13 +3,11 @@ import * as THREE from 'three';
 import {GLTFLoader, GLTF} from 'three/examples/jsm/loaders/GLTFLoader';
 import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
 import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
-import {OBJLoader2Parser} from 'three/examples/jsm/loaders/obj2/OBJLoader2Parser';
 
 import {SceneService} from './scene.service';
 import {EngineService} from './engine.service';
 import {InspectorService} from './inspector.service';
 import {OBJParserService} from './obj-parser';
-import {TitleCasePipe} from '@angular/common';
 
 @Injectable()
 export class LoaderService {
@@ -26,6 +24,7 @@ export class LoaderService {
   ) {}
 
   async loadObj(objFile: File, mtlFile: File, images: File[]) {
+    this.sceneService.clear();
     const reader2 = new FileReader();
     reader2.addEventListener('load', e => {
       this.objParser.parse(e.target.result.toString());
@@ -81,9 +80,10 @@ export class LoaderService {
   }
 
   async loadGltf(file: File) {
+    this.sceneService.clear();
     const fileUrl = await this.getTempFileUrl(file);
     const gltf: GLTF = await this.gltfLoader.loadAsync(fileUrl.toString());
-    // TODO handle multiple children
+    // TODO handle multiple children (e.g. test with cactus model)
     gltf.scene.children[0].traverse(c => {
       if ((c as any).isMesh) {
         const mesh = c as THREE.Mesh;
@@ -106,18 +106,15 @@ export class LoaderService {
     const maxSize = this.sceneService.calcMaxObjectSize();
     this.engineService.ssaoPass.minDistance = maxSize / 100;
     this.engineService.ssaoPass.maxDistance = maxSize / 10;
+    this.inspectorService.changeMode('full', true);
     this.engineService.controls.rotateTo(0, Math.PI * 0.5, false);
     this.engineService.controls.fitTo(this.sceneService.model, true);
-    this.inspectorService.changeMode('full');
   }
 
   private async getTempFileUrl(file: File): Promise<string> {
     return new Promise(res => {
       const reader = new FileReader();
-      reader.onload = e => {
-        console.log(e);
-        res(e.target.result.toString());
-      };
+      reader.onload = e => res(e.target.result.toString());
       reader.readAsDataURL(file);
     });
   }

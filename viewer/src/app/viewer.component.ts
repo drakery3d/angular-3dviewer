@@ -1,13 +1,11 @@
 import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core';
 import * as THREE from 'three';
-import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader';
 
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
-import {VirtualTimeScheduler} from 'rxjs';
 
 // TODO 2d texture viewer
 // TODO performance optimizations (e.g. don't render on still frame)
@@ -133,7 +131,6 @@ export class ViewerComponent implements AfterViewInit {
 
   @ViewChild('rendererCanvas', {static: false})
   private renderCanvas: ElementRef<HTMLCanvasElement>;
-  private mouse = new THREE.Vector2();
   private clearColor = new THREE.Color(0xeeeeee);
 
   constructor(
@@ -148,7 +145,6 @@ export class ViewerComponent implements AfterViewInit {
     this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
     this.engineService.setBackground(this.clearColor);
-    this.createTestScene();
   }
 
   @HostListener('document:keypress', ['$event'])
@@ -168,23 +164,10 @@ export class ViewerComponent implements AfterViewInit {
 
   onDoubleClick(event) {
     if (!this.sceneService.model) return;
-    const x = event.clientX,
-      y = event.clientY;
-    this.mouse.x = (x / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(y / window.innerHeight) * 2 + 1;
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(this.mouse, this.engineService.camera);
-    let intersects = [];
-    raycaster.intersectObject(this.sceneService.model, false, intersects);
-    if (!intersects.length) return;
-
-    let min;
-    for (const i of intersects) {
-      if (!min || i.distance < min.distance) min = i;
-    }
-    this.engineService.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
-    this.engineService.controls.dolly(min.distance / 2, true);
+    this.engineService.focusLocation(
+      (event.clientX / window.innerWidth) * 2 - 1,
+      -(event.clientY / window.innerHeight) * 2 + 1,
+    );
   }
 
   onModeChanged(mode: string) {
@@ -216,30 +199,6 @@ export class ViewerComponent implements AfterViewInit {
     if (obj.length) {
       await this.loaderService.loadObj(obj[0], mtl[0], images);
     }
-  }
-
-  private async createTestScene() {
-    // TODO rotate env and adjust exposure
-    /**
-     * TODO blur background (no native solution)
-     * https://discourse.threejs.org/t/how-to-blur-a-background/8558/20
-     * we probably have to prerender blurred hdris
-     */
-    const [blurry, sharp] = await Promise.all([
-      this.loadEnvMap('assets/studio_small_03_1k_blur.hdr'),
-      this.loadEnvMap('assets/studio_small_03_1k.hdr'),
-    ]);
-    this.sceneService.scene.background = blurry;
-    this.sceneService.scene.environment = sharp;
-  }
-
-  private async loadEnvMap(path: string) {
-    const texture = await new RGBELoader().loadAsync(path);
-    const pmremGenerator = new THREE.PMREMGenerator(this.engineService.renderer);
-    pmremGenerator.compileEquirectangularShader();
-    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-    pmremGenerator.dispose();
-    return envMap;
   }
 
   toggleFullScreen() {

@@ -42,6 +42,11 @@ export class OBJParserService {
     }
   }
 
+  reset() {
+    this.indices = [];
+    this.points = [];
+  }
+
   private parseLine(
     buffer: any[],
     bufferPointer: number,
