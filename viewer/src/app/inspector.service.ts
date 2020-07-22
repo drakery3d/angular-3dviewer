@@ -59,6 +59,7 @@ export class InspectorService {
   }
 
   private wireframe() {
+    // TODO factor in opacity map of object
     // TODO lines are invisiable at certain view angles
     // TODO not all edges are drawn (e.g. visbile when importing a cube)
     this.engineService.setPostProcessing(false);
@@ -95,8 +96,6 @@ export class InspectorService {
   }
 
   private vertices() {
-    // TODO only vertices mode
-    // https://threejs.org/examples/?q=spher#webgl_morphtargets_sphere
     this.engineService.setPostProcessing(false);
     const group = new THREE.Group();
     const model = this.sceneService.model.clone(true);
@@ -108,18 +107,15 @@ export class InspectorService {
     this.copyTransforms(this.sceneService.model, group);
     this.sceneService.scene.add(group);
 
-    var pointsMaterial = new THREE.PointsMaterial({
+    const pointsMaterial = new THREE.PointsMaterial({
       size: 5,
       sizeAttenuation: false,
       map: new THREE.TextureLoader().load('assets/dot.png'),
       alphaTest: 0.5,
     });
-
-    var points = new THREE.Points(filler.geometry, pointsMaterial);
-
+    const points = new THREE.Points(filler.geometry, pointsMaterial);
     points.morphTargetInfluences = filler.morphTargetInfluences;
     points.morphTargetDictionary = filler.morphTargetDictionary;
-
     filler.add(points);
   }
 
@@ -147,10 +143,6 @@ export class InspectorService {
     const model = this.sceneService.model.clone(true);
     model.geometry = new THREE.WireframeGeometry(this.sceneService.model.geometry);
     this.sceneService.scene.add(group);
-  }
-
-  private faceNormals() {
-    // TODO face normals, too
   }
 
   private albedo() {

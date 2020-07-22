@@ -9,6 +9,7 @@ import {SceneService} from './scene.service';
 import {EngineService} from './engine.service';
 import {InspectorService} from './inspector.service';
 import {OBJParserService} from './obj-parser';
+import {TitleCasePipe} from '@angular/common';
 
 @Injectable()
 export class LoaderService {
@@ -105,7 +106,8 @@ export class LoaderService {
     const maxSize = this.sceneService.calcMaxObjectSize();
     this.engineService.ssaoPass.minDistance = maxSize / 100;
     this.engineService.ssaoPass.maxDistance = maxSize / 10;
-    this.engineService.focusObject(this.sceneService.model);
+    this.engineService.controls.rotateTo(0, Math.PI * 0.5, false);
+    this.engineService.controls.fitTo(this.sceneService.model, true);
     this.inspectorService.changeMode('full');
   }
 
