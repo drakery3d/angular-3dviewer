@@ -1,5 +1,6 @@
 import {Injectable, ElementRef, NgZone, OnDestroy} from '@angular/core';
 import * as THREE from 'three';
+import {RGBELoader} from 'three/examples/jsm/loaders/RGBELoader';
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass';
@@ -7,9 +8,7 @@ import {SSAOPass} from 'three/examples/jsm/postprocessing/SSAOPass';
 import CameraControls from 'camera-controls';
 
 CameraControls.install({THREE: THREE});
-// import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 
-import {OrbitControls} from './controls';
 import {SceneService} from './scene.service';
 
 @Injectable()
@@ -19,6 +18,7 @@ export class EngineService implements OnDestroy {
   renderer: THREE.WebGLRenderer;
   bloomPass: UnrealBloomPass;
   ssaoPass: SSAOPass;
+  needsUpdate = false;
 
   private clock = new THREE.Clock();
   private canvas: HTMLCanvasElement;
@@ -35,7 +35,7 @@ export class EngineService implements OnDestroy {
     this.renderer.clippingPlanes;
   }
 
-  createScene(canvas: ElementRef<HTMLCanvasElement>) {
+  async createScene(canvas: ElementRef<HTMLCanvasElement>) {
     window.addEventListener('resize', () => this.resize());
 
     const width = window.innerWidth;
@@ -88,6 +88,21 @@ export class EngineService implements OnDestroy {
     this.ssaoPass.kernelRadius = 16;
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.1, 0.4, 0.85);
     this.composer.addPass(this.renderPass);
+
+    // TODO rotate env and adjust exposure
+    /**
+     * TODO blur background (no native solution)
+     * https://discourse.threejs.org/t/how-to-blur-a-background/8558/20
+     * we probably have to prerender blurred hdris
+     */
+    const [blurry, sharp] = await Promise.all([
+      this.loadEnvMap('assets/studio_small_03_1k_blur.hdr'),
+      this.loadEnvMap('assets/studio_small_03_1k.hdr'),
+    ]);
+    this.sceneService.scene.background = blurry;
+    this.sceneService.scene.environment = sharp;
+
+    this.needsUpdate = true;
   }
 
   setPostProcessing(enabled: boolean) {
@@ -95,7 +110,7 @@ export class EngineService implements OnDestroy {
     this.enablePostProcessing = enabled;
     if (enabled) {
       this.composer.addPass(this.renderPass);
-      this.composer.addPass(this.ssaoPass);
+      // this.composer.addPass(this.ssaoPass); // TODO this changes the way the helmet looks
       this.composer.addPass(this.bloomPass);
     } else {
       this.composer.passes = [this.renderPass];
@@ -112,13 +127,32 @@ export class EngineService implements OnDestroy {
       const hasControlsUpdated = this.controls.update(delta);
 
       this.frameId = requestAnimationFrame(() => this.animate());
-      if (hasControlsUpdated) {
+      if (hasControlsUpdated || this.needsUpdate) {
         this.composer.render();
+        this.needsUpdate = false;
       }
     });
   }
 
+  focusLocation(x: number, y: number) {
+    const point = new THREE.Vector2(x, y);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(point, this.camera);
+    let intersects = [];
+    raycaster.intersectObject(this.sceneService.model, false, intersects);
+    if (!intersects.length) return;
+
+    let min;
+    for (const i of intersects) {
+      if (!min || i.distance < min.distance) min = i;
+    }
+    this.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
+    this.controls.dolly(min.distance / 2, true);
+  }
+
   private resize() {
+    // TODO what to run outside angular?
     this.ngZone.runOutsideAngular(() => {
       const width = window.innerWidth;
       const height = window.innerHeight;
@@ -132,6 +166,17 @@ export class EngineService implements OnDestroy {
       }
       this.renderer.setSize(width, height);
       this.composer.setSize(width, height);
+
+      this.needsUpdate = true;
     });
+  }
+
+  private async loadEnvMap(path: string) {
+    const texture = await new RGBELoader().loadAsync(path);
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    pmremGenerator.dispose();
+    return envMap;
   }
 }

@@ -19,15 +19,18 @@ export class InspectorService {
   ) {}
 
   // TODO keyboard shurtcuts for switching
-  changeMode(mode: string) {
-    if (this.mode === mode) return;
+  changeMode(mode: string, force = false) {
+    if (!force && this.mode === mode) return;
     this.mode = mode;
     this.sceneService.clear();
 
-    if (mode === 'full') this.full();
-    if (mode === 'full_no_post') {
+    if (mode === 'full') {
+      this.engineService.setPostProcessing(true);
       this.full();
+    }
+    if (mode === 'full_no_post') {
       this.engineService.setPostProcessing(false);
+      this.full();
     }
 
     if (mode === 'wireframe') this.wireframe();
@@ -50,10 +53,11 @@ export class InspectorService {
     if (mode === 'bump') this.bump();
     if (mode === 'displacement') this.displacement();
     if (mode === 'alpha') this.alpha();
+
+    this.engineService.needsUpdate = true;
   }
 
   private full() {
-    this.engineService.setPostProcessing(true);
     if (this.fullMaterial) this.sceneService.model.material = this.fullMaterial;
     this.sceneService.scene.add(this.sceneService.model);
   }
