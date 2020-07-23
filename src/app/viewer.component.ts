@@ -4,9 +4,7 @@ import * as THREE from 'three';
 import {EngineService} from './engine.service';
 import {FullscreenService} from './fullscreen.service';
 import {InspectorService} from './inspector.service';
-import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
-import {typeWithParameters} from '@angular/compiler/src/render3/util';
 
 enum Keys {
   F = 102,
@@ -32,6 +30,8 @@ enum Keys {
 // https://discourse.threejs.org/t/is-it-possible-to-reduce-memory-consumption-with-new-gltf-format/3552/4?u=flolo
 // TODO validate gltf https://github.com/KhronosGroup/glTF-Validator
 // TODO support .zip files
+// TODO support blender files
+// TODO animations
 
 @Component({
   selector: 'app-viewer',
