@@ -11,21 +11,21 @@ import {OBJParserService} from './obj-parser';
 export class InspectorService {
   mode: string | undefined;
 
-  private children0: THREE.Object3D[];
+  private scene0: THREE.Scene;
 
   constructor(private engineService: EngineService, private objParser: OBJParserService) {}
 
   get initialized() {
-    return !!this.children0.length;
+    return !!this.scene0;
   }
 
   initialize(scene: THREE.Scene) {
-    this.children0 = scene.children.map(c => c.clone(true));
+    this.scene0 = scene.clone(true);
   }
 
   // TODO keyboard shurtcuts for switching
   changeMode(mode: string, scene: THREE.Scene, force = false) {
-    if (!this.children0)
+    if (!this.scene0)
       throw new Error('inspector service has not been initiliazed yet. please call "initialize"');
     if (!force && this.mode === mode) return;
     this.mode = mode;
@@ -66,13 +66,17 @@ export class InspectorService {
   }
 
   clear() {
-    this.children0 = [];
+    this.scene0 = undefined;
     this.mode = 'full';
+  }
+
+  get initialScene() {
+    return this.scene0;
   }
 
   private async full(scene: THREE.Scene) {
     scene.children = [];
-    scene.add(...this.children0);
+    scene.add(...this.scene0.children.map(c => c.clone(true)));
   }
 
   private wireframe(scene: THREE.Scene) {
@@ -82,7 +86,7 @@ export class InspectorService {
     // TODO save wireframe once created, so that it diesn't need to be recalculated
     // TODO this loads slow (e.g. red car)
 
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     const fillerMaterial = new THREE.MeshBasicMaterial({color: 0xffffff, side: THREE.DoubleSide});
     const wireframeMaterial = new THREE.LineBasicMaterial({color: 0x000000, linewidth: 1});
@@ -129,7 +133,7 @@ export class InspectorService {
       alphaTest: 0.5,
     });
 
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
     for (const child of children) {
       child.traverse(node => {
         if ((node as any).isMesh) {
@@ -148,7 +152,7 @@ export class InspectorService {
   private mesh(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
 
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
     const material = new THREE.MeshPhysicalMaterial({
       color: 0x555555,
       reflectivity: 1,
@@ -173,7 +177,7 @@ export class InspectorService {
 
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3()).length();
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -195,7 +199,7 @@ export class InspectorService {
     this.engineService.setPostProcessing(false);
 
     const loader = new THREE.TextureLoader();
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
     const material = new THREE.MeshBasicMaterial({
       map: loader.load('assets/uv-grid.png'),
       side: THREE.DoubleSide,
@@ -215,7 +219,7 @@ export class InspectorService {
 
   private albedo(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -239,7 +243,7 @@ export class InspectorService {
 
   private normal(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -263,7 +267,7 @@ export class InspectorService {
 
   private roughness(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -292,7 +296,7 @@ export class InspectorService {
   private metalness(scene: THREE.Scene) {
     // TODO metalnessMap is defined, although it is not presetn
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -316,7 +320,7 @@ export class InspectorService {
 
   private ambientOcclusion(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -340,7 +344,7 @@ export class InspectorService {
 
   private clearCoat(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -364,7 +368,7 @@ export class InspectorService {
 
   private clearCoatRoughness(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -389,7 +393,7 @@ export class InspectorService {
 
   private clearCoatNormal(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -413,7 +417,7 @@ export class InspectorService {
 
   private light(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -438,7 +442,7 @@ export class InspectorService {
   private emissive(scene: THREE.Scene) {
     // TODO factor in emissive intensity
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -462,7 +466,7 @@ export class InspectorService {
 
   private bump(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -486,7 +490,7 @@ export class InspectorService {
 
   private displacement(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {
@@ -510,7 +514,7 @@ export class InspectorService {
 
   private alpha(scene: THREE.Scene) {
     this.engineService.setPostProcessing(false);
-    const children = this.children0.map(c => c.clone(true));
+    const children = this.scene0.children.map(c => c.clone(true));
 
     for (const child of children) {
       child.traverse(node => {

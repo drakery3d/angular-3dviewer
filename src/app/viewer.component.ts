@@ -122,8 +122,7 @@ export class ViewerComponent implements AfterViewInit {
       this.clear();
 
       this.scene.add(scene);
-      console.log(this.scene);
-      // this.inspectorService.clear();
+      this.inspectorService.clear();
 
       const box = new THREE.Box3().setFromObject(this.scene);
       const size = box.getSize(new THREE.Vector3()).length();
@@ -149,7 +148,6 @@ export class ViewerComponent implements AfterViewInit {
     this.grabbing = false;
   }
 
-  // TODO this doesn't seem to work anymore (after switching modes)
   onDoubleClick(event) {
     if (!this.scene) return;
 
@@ -160,7 +158,7 @@ export class ViewerComponent implements AfterViewInit {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(point, this.engineService.camera);
     let intersects = [];
-    raycaster.intersectObject(this.scene, true, intersects);
+    raycaster.intersectObject(this.inspectorService.initialScene, true, intersects);
     if (!intersects.length) return;
 
     let min;
