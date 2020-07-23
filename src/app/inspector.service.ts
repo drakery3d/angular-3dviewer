@@ -6,6 +6,8 @@ import {EngineService} from './engine.service';
 import {SceneService} from './scene.service';
 import {OBJParserService} from './obj-parser';
 
+// TODO consider lazy loading this service
+
 @Injectable()
 export class InspectorService {
   mode: string | undefined;

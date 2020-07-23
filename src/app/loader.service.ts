@@ -1,29 +1,59 @@
 import {Injectable} from '@angular/core';
 import * as THREE from 'three';
 import {GLTFLoader, GLTF} from 'three/examples/jsm/loaders/GLTFLoader';
-import {OBJLoader2} from 'three/examples/jsm/loaders/OBJLoader2';
-import {MTLLoader} from 'three/examples/jsm/loaders/MTLLoader';
-
-import {SceneService} from './scene.service';
-import {EngineService} from './engine.service';
-import {InspectorService} from './inspector.service';
-import {OBJParserService} from './obj-parser';
+import {DRACOLoader} from 'three/examples/jsm/loaders/DRACOLoader';
 
 @Injectable()
 export class LoaderService {
-  // TODO initialize only when necessary
-  private gltfLoader = new GLTFLoader();
-  private objLoader = new OBJLoader2();
-  private mtlLoader = new MTLLoader();
+  async loadGltf(rootFile: File, rootPath: string, allFiles: Map<string, File>) {
+    const fileUrl = URL.createObjectURL(rootFile);
+    const baseUrl = this.extractUrlBase(fileUrl);
+    const blobUrls = [];
 
-  constructor(
-    private sceneService: SceneService,
-    private engineService: EngineService,
-    private inspectorService: InspectorService,
-    private objParser: OBJParserService,
-  ) {}
+    const manager = new THREE.LoadingManager();
+    manager.setURLModifier(url => {
+      const normalizedUrl =
+        rootPath +
+        decodeURI(url)
+          .replace(baseUrl, '')
+          .replace(/^(\.?\/)/, '');
 
-  async loadObj(objFile: File, mtlFile: File, images: File[]) {
+      if (allFiles.has(normalizedUrl)) {
+        const blob = allFiles.get(normalizedUrl);
+        const blobURL = URL.createObjectURL(blob);
+        blobUrls.push(blobURL);
+        return blobURL;
+      }
+
+      return url;
+    });
+
+    const loader = new GLTFLoader(manager);
+    loader.setCrossOrigin('anonymous');
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('assets/draco/');
+    loader.setDRACOLoader(dracoLoader);
+
+    const gltf: GLTF = await loader.loadAsync(fileUrl);
+    blobUrls.forEach(URL.revokeObjectURL);
+    URL.revokeObjectURL(fileUrl);
+
+    if (gltf.scenes.length > 1)
+      console.warn('multiple scenes are not supported. only one will be loaded');
+    const scene = gltf.scene || gltf.scenes[0];
+    const animations = gltf.animations || [];
+
+    if (!scene) throw new Error('file has no scene');
+    return {scene, animations};
+  }
+
+  private extractUrlBase(url: string) {
+    const index = url.lastIndexOf('/');
+    if (index === -1) return './';
+    return url.substr(0, index + 1);
+  }
+  /* async loadObj(objFile: File, mtlFile: File, images: File[]) {
     this.sceneService.clear();
     const reader2 = new FileReader();
     reader2.addEventListener('load', e => {
@@ -79,52 +109,10 @@ export class LoaderService {
     this.loadDone();
   }
 
-  async loadGltf2(gltfFile: File, rootPath: string, allFiles: File[]) {
-    this.sceneService.clear();
-  }
-
-  async loadGltf(file: File) {
-    this.sceneService.clear();
-    const fileUrl = await this.getTempFileUrl(file);
-    const gltf: GLTF = await this.gltfLoader.loadAsync(fileUrl.toString());
-    // TODO handle multiple children (e.g. test with cactus model)
-    // console.log(gltf.scene);
-
-    this.printGraph(gltf.scene);
-
-    gltf.scene.children[0].traverse(c => {
-      if ((c as any).isMesh) {
-        const mesh = c as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        this.sceneService.model = mesh;
-        // this.sceneService.model.add(mesh);
-        // console.log(mesh);
-        // TODO try to load textures (but don't override)
-      }
-    });
-    this.loadDone();
-  }
-
-  private printGraph(node) {
-    console.group(' <' + node.type + '> ' + node.name);
-    node.children.forEach(child => this.printGraph(child));
-    console.groupEnd();
-  }
-
   private async laodLocalTextureMap(file: File) {
     const url = await this.getTempFileUrl(file);
     const loader = new THREE.TextureLoader();
     return loader.loadAsync(url);
-  }
-
-  private loadDone() {
-    const maxSize = this.sceneService.calcMaxObjectSize();
-    this.engineService.ssaoPass.minDistance = maxSize / 100;
-    this.engineService.ssaoPass.maxDistance = maxSize / 10;
-    this.inspectorService.changeMode('full', true);
-    this.engineService.controls.rotateTo(0, Math.PI * 0.5, false);
-    this.engineService.controls.fitTo(this.sceneService.model, true);
   }
 
   private async getTempFileUrl(file: File): Promise<string> {
@@ -133,5 +121,5 @@ export class LoaderService {
       reader.onload = e => res(e.target.result.toString());
       reader.readAsDataURL(file);
     });
-  }
+  }*/
 }

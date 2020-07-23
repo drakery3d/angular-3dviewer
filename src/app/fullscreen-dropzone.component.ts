@@ -43,7 +43,7 @@ import {Component, Output, EventEmitter, HostListener} from '@angular/core';
   ],
 })
 export class FullscreenDropzone {
-  @Output() filesAdded = new EventEmitter<File[]>();
+  @Output() filesAdded = new EventEmitter<Map<string, File>>();
 
   dragging = false;
 
@@ -54,7 +54,7 @@ export class FullscreenDropzone {
 
   filesSelected(event: FileList) {
     const files = Array.from(event);
-    this.filesAdded.emit(files);
+    this.filesAdded.emit(this.createFileMap(files));
   }
 
   onDragOver(event) {
@@ -70,7 +70,16 @@ export class FullscreenDropzone {
     this.dragging = false;
     const items = event.dataTransfer.items;
     const files = await this.getFiles(items);
-    this.filesAdded.emit(files);
+    this.filesAdded.emit(this.createFileMap(files));
+  }
+
+  private createFileMap(files: File[]) {
+    const map = new Map<string, File>();
+    for (const file of files) {
+      const path = (file as any).path || file.name;
+      map.set(path, file);
+    }
+    return map;
   }
 
   private allowDrag(event) {

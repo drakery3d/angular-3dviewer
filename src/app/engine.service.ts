@@ -9,8 +9,6 @@ import CameraControls from 'camera-controls';
 
 CameraControls.install({THREE: THREE});
 
-import {SceneService} from './scene.service';
-
 @Injectable()
 export class EngineService implements OnDestroy {
   controls: CameraControls;
@@ -28,7 +26,7 @@ export class EngineService implements OnDestroy {
   private renderTarget: THREE.WebGLMultisampleRenderTarget;
   private renderPass: RenderPass;
 
-  constructor(private sceneService: SceneService, private ngZone: NgZone) {}
+  constructor(private ngZone: NgZone) {}
 
   ngOnDestroy() {
     if (this.frameId != null) cancelAnimationFrame(this.frameId);
@@ -52,15 +50,15 @@ export class EngineService implements OnDestroy {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-    this.sceneService.scene = new THREE.Scene();
-    this.sceneService.scene.background = new THREE.Color(0xffffff);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
     this.camera = new THREE.PerspectiveCamera(
       30,
       this.canvas.offsetWidth / this.canvas.offsetHeight,
       0.001,
       1000,
     );
-    this.sceneService.scene.add(this.camera);
+    scene.add(this.camera);
 
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
     this.controls.polarRotateSpeed = 3;
@@ -83,8 +81,8 @@ export class EngineService implements OnDestroy {
       stencilBuffer: false,
     });
     this.composer = new EffectComposer(this.renderer, this.renderTarget);
-    this.renderPass = new RenderPass(this.sceneService.scene, this.camera);
-    this.ssaoPass = new SSAOPass(this.sceneService.scene, this.camera, width, height);
+    this.renderPass = new RenderPass(scene, this.camera);
+    this.ssaoPass = new SSAOPass(scene, this.camera, width, height);
     this.ssaoPass.kernelRadius = 16;
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.1, 0.4, 0.85);
     this.composer.addPass(this.renderPass);
@@ -99,10 +97,12 @@ export class EngineService implements OnDestroy {
       this.loadEnvMap('assets/studio_small_03_1k_blur.hdr'),
       this.loadEnvMap('assets/studio_small_03_1k.hdr'),
     ]);
-    this.sceneService.scene.background = blurry;
-    this.sceneService.scene.environment = sharp;
+    scene.background = blurry;
+    scene.environment = sharp;
 
     this.needsUpdate = true;
+
+    return scene;
   }
 
   setPostProcessing(enabled: boolean) {
@@ -117,10 +117,6 @@ export class EngineService implements OnDestroy {
     }
   }
 
-  setBackground(color: THREE.Color) {
-    this.sceneService.scene.background = color;
-  }
-
   animate() {
     this.ngZone.runOutsideAngular(() => {
       const delta = this.clock.getDelta();
@@ -132,23 +128,6 @@ export class EngineService implements OnDestroy {
         this.needsUpdate = false;
       }
     });
-  }
-
-  focusLocation(x: number, y: number) {
-    const point = new THREE.Vector2(x, y);
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(point, this.camera);
-    let intersects = [];
-    raycaster.intersectObject(this.sceneService.model, false, intersects);
-    if (!intersects.length) return;
-
-    let min;
-    for (const i of intersects) {
-      if (!min || i.distance < min.distance) min = i;
-    }
-    this.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
-    this.controls.dolly(min.distance / 2, true);
   }
 
   private resize() {

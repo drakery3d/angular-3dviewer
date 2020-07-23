@@ -9,9 +9,11 @@ export class SceneService {
   private maxSize: number;
 
   clear() {
+    // TODO better clear!
     this.scene.remove(...this.scene.children);
   }
 
+  // TODO use size calculation of gltf loader method
   calcMaxObjectSize() {
     if (this.maxSize) return this.maxSize;
     const model = this.model;

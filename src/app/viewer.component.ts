@@ -6,7 +6,12 @@ import {FullscreenService} from './fullscreen.service';
 import {InspectorService} from './inspector.service';
 import {SceneService} from './scene.service';
 import {LoaderService} from './loader.service';
+import {typeWithParameters} from '@angular/compiler/src/render3/util';
 
+enum Keys {
+  F = 102,
+  R = 114,
+}
 // TODO 2d texture viewer
 // TODO performance optimizations (e.g. don't render on still frame)
 // TODO handle unsupported browsers / devices
@@ -33,43 +38,12 @@ import {LoaderService} from './loader.service';
   template: `
     <app-fullscreen-dropzone (filesAdded)="onFiles($event)"></app-fullscreen-dropzone>
     <div class="container">
-      <div class="ui" *ngIf="sceneService.model">
+      <div class="ui" *ngIf="scene">
         <app-inspector-gui
           [selected]="inspectorService.mode"
           (modeChanged)="onModeChanged($event)"
         ></app-inspector-gui>
       </div>
-
-      <!--
-      <div class="gui">
-
-        <div>
-          <button (click)="toggleFullScreen()">Fullscreen</button>
-          <div>
-            <span>bloom</span>
-            <input
-              type="range"
-              min="0"
-              max="1.5"
-              value="0"
-              step="0.01"
-              (change)="onBloomChange($event)"
-            />
-          </div>
-          <div>
-            <span>ssao</span>
-            <input
-              type="range"
-              min="0"
-              max="32"
-              value="16"
-              step="1"
-              (change)="onSSAOChange($event)"
-            />
-          </div>
-        </div>
-        </div>
-        -->
       <div class="wrapper">
         <canvas
           #rendererCanvas
@@ -92,7 +66,7 @@ import {LoaderService} from './loader.service';
         right: 0;
         top: 0;
         bottom: 0;
-        background: rgba(255, 255, 2555, 0.75);
+        background: rgba(255, 255, 255, 0.75);
       }
 
       canvas {
@@ -105,140 +79,96 @@ import {LoaderService} from './loader.service';
   ],
 })
 export class ViewerComponent implements AfterViewInit {
+  @ViewChild('rendererCanvas') renderCanvas: ElementRef<HTMLCanvasElement>;
   grabbing = false;
-
-  @ViewChild('rendererCanvas', {static: false})
-  private renderCanvas: ElementRef<HTMLCanvasElement>;
-  private clearColor = new THREE.Color(0xeeeeee);
+  scene: THREE.Scene;
 
   constructor(
     public inspectorService: InspectorService,
-    public sceneService: SceneService,
     private engineService: EngineService,
     private fullscreenService: FullscreenService,
     private loaderService: LoaderService,
   ) {}
 
-  ngAfterViewInit() {
-    this.engineService.createScene(this.renderCanvas);
+  async ngAfterViewInit() {
+    this.scene = await this.engineService.createScene(this.renderCanvas);
     this.engineService.animate();
-    this.engineService.setBackground(this.clearColor);
   }
 
   @HostListener('document:keypress', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    enum Keys {
-      F = 102,
-    }
-    if (event.keyCode === Keys.F) this.engineService.controls.fitTo(this.sceneService.model, true);
+    if (event.keyCode === Keys.R) this.engineService.controls.fitTo(this.scene, true);
+    if (event.keyCode === Keys.F) this.fullscreenService.toggle();
   }
 
-  async onFiles(files: File[]) {
-    console.log(files);
-    const extensions = files.map(f => f.name.split('.').pop());
+  async onFiles(files: Map<string, File>) {
+    const fileExtensions = {gltf: 'gltf', glb: 'glb'};
+    const extensions = Array.from(files.keys()).map(path => path.split('.').pop());
 
-    if (extensions.includes('gltf') || extensions.includes('glb')) {
+    if (extensions.includes(fileExtensions.gltf) || extensions.includes(fileExtensions.glb)) {
       let root: File = undefined;
       let rootPath: string;
       files.forEach(file => {
         const extension = file.name.split('.').pop();
-        if (extensions.includes('gltf') || extension.includes('glb')) {
+        if (extension === fileExtensions.gltf || extension === fileExtensions.glb) {
           if (root !== undefined)
             console.warn('Mutliple gltf files are not supported. Only one will be loaded!');
           root = file;
-          rootPath = URL.createObjectURL(file);
+          const path: string = (file as any).path || '';
+          rootPath = path.replace(file.name, '');
         }
       });
-      // NOW new gltf loader which considers all children
-      // this.loaderService.loadGltf2(root, rootPath, files);
-      await this.loaderService.loadGltf(root);
-      return;
-    }
+      const {scene, animations} = await this.loaderService.loadGltf(root, rootPath, files);
+      this.scene.remove(...this.scene.children);
 
-    if (extensions.includes('obj')) {
-      const obj = files.filter(f => f.name.split('.').pop() === 'obj');
-      const mtl = files.filter(f => f.name.split('.').pop() === 'mtl');
-      const images = files.filter(f => f.type.includes('image'));
-      await this.loaderService.loadObj(obj[0], mtl[0], images);
-      return;
+      this.scene.add(scene);
+
+      const box = new THREE.Box3().setFromObject(this.scene);
+      const size = box.getSize(new THREE.Vector3()).length();
+
+      this.engineService.camera.near = size * 0.01;
+      this.engineService.camera.far = size * 10;
+      this.engineService.camera.updateProjectionMatrix();
+      // TODO also prevent panning to far away!
+      this.engineService.controls.maxDistance = size * Math.PI;
+      // this.engineService.controls.boundaryEnclosesCamera = true;
+      // this.engineService.controls.setBoundary(box.expandByScalar(10));
+      this.engineService.controls.setPosition(0, 0, size * 5);
+      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false);
+      this.engineService.controls.fitTo(this.scene, true);
     }
   }
 
   onMouseDown() {
     this.grabbing = true;
   }
+
   onMouseUp() {
     this.grabbing = false;
   }
 
   onDoubleClick(event) {
-    if (!this.sceneService.model) return;
-    this.engineService.focusLocation(
-      (event.clientX / window.innerWidth) * 2 - 1,
-      -(event.clientY / window.innerHeight) * 2 + 1,
-    );
+    if (!this.scene) return;
+
+    const x = (event.clientX / window.innerWidth) * 2 - 1;
+    const y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const point = new THREE.Vector2(x, y);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(point, this.engineService.camera);
+    let intersects = [];
+    raycaster.intersectObject(this.scene, true, intersects);
+    if (!intersects.length) return;
+
+    let min;
+    for (const i of intersects) {
+      if (!min || i.distance < min.distance) min = i;
+    }
+    this.engineService.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
+    this.engineService.controls.dolly(min.distance / 2, true);
   }
 
   onModeChanged(mode: string) {
     this.inspectorService.changeMode(mode);
-  }
-
-  onBloomChange(event) {
-    this.engineService.bloomPass.strength = event.path[0].value;
-  }
-
-  onSSAOChange(event) {
-    this.engineService.ssaoPass.kernelRadius = event.path[0].value;
-  }
-
-  /* async onInputChanged(event) {
-    event.stopPropagation();
-    event.preventDefault();
-    const files: File[] = Array.from(event.dataTransfer.files || []);
-    const items = Array.from(event.dataTransfer.items || []);
-
-    console.log({files, items});
-    // const files: File[] = Array.from(event.target.files);
-    const extensions = files.map(f => f.name.split('.').pop());
-
-    if (extensions.includes('gltf') || extensions.includes('glb')) {
-      let root: File = undefined;
-      let rootPath: string;
-      files.forEach(file => {
-        const extension = file.name.split('.').pop();
-        if (extensions.includes('gltf') || extension.includes('glb')) {
-          if (root !== undefined)
-            console.warn('Mutliple gltf files are not supported. Only one will be loaded!');
-          root = file;
-          rootPath = URL.createObjectURL(file);
-        }
-      });
-      this.loaderService.loadGltf2(root, rootPath, files);
-      return;
-    }
-
-    if (extensions.includes('obj')) {
-      return;
-    }
-
-       const gltf = files.filter(
-      f => f.name.split('.').pop() === 'gltf' || f.name.split('.').pop() === 'glb',
-    );
-    const obj = files.filter(f => f.name.split('.').pop() === 'obj');
-    const mtl = files.filter(f => f.name.split('.').pop() === 'mtl');
-    const images = files.filter(f => f.type.includes('image'));
-
-    if (gltf.length) {
-      await this.loaderService.loadGltf(gltf[0]);
-      return;
-    }
-
-    if (obj.length) {
-      await this.loaderService.loadObj(obj[0], mtl[0], images);
-    }
-  } */
-
-  toggleFullScreen() {
-    this.fullscreenService.toggle();
   }
 }
