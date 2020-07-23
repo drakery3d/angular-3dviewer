@@ -119,9 +119,11 @@ export class ViewerComponent implements AfterViewInit {
         }
       });
       const {scene, animations} = await this.loaderService.loadGltf(root, rootPath, files);
-      this.scene.remove(...this.scene.children);
+      this.clear();
 
       this.scene.add(scene);
+      console.log(this.scene);
+      // this.inspectorService.clear();
 
       const box = new THREE.Box3().setFromObject(this.scene);
       const size = box.getSize(new THREE.Vector3()).length();
@@ -147,6 +149,7 @@ export class ViewerComponent implements AfterViewInit {
     this.grabbing = false;
   }
 
+  // TODO this doesn't seem to work anymore (after switching modes)
   onDoubleClick(event) {
     if (!this.scene) return;
 
@@ -169,6 +172,12 @@ export class ViewerComponent implements AfterViewInit {
   }
 
   onModeChanged(mode: string) {
-    this.inspectorService.changeMode(mode);
+    if (!this.inspectorService.initialized) this.inspectorService.initialize(this.scene);
+    this.inspectorService.changeMode(mode, this.scene);
+  }
+
+  private clear() {
+    this.scene.remove(...this.scene.children);
+    this.inspectorService.clear();
   }
 }

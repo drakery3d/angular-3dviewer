@@ -51,7 +51,6 @@ export class EngineService implements OnDestroy {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
     this.camera = new THREE.PerspectiveCamera(
       30,
       this.canvas.offsetWidth / this.canvas.offsetHeight,
