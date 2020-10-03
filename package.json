@@ -5,7 +5,6 @@
     "ng": "ng",
     "dev": "ng serve",
     "build": "ng build --prod",
-    "lint": "ng lint",
     "heroku-postbuild": "ng build --prod",
     "start": "node server/index.js",
     "postinstall": "ngcc"
