@@ -50,3 +50,6 @@ scene.gltf
 **/assets/textures
 **/assets/*.gltf
 **/assets/*.bin
+
+
+server/uploads
