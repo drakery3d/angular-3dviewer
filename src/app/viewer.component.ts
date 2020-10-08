@@ -1,10 +1,12 @@
-import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core';
-import * as THREE from 'three';
+import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core'
+import {ActivatedRoute} from '@angular/router'
+import * as THREE from 'three'
+import {GLTFLoader, GLTF} from 'three/examples/jsm/loaders/GLTFLoader'
 
-import {EngineService} from './engine.service';
-import {FullscreenService} from './fullscreen.service';
-import {InspectorService} from './inspector.service';
-import {LoaderService} from './loader.service';
+import {EngineService} from './engine.service'
+import {FullscreenService} from './fullscreen.service'
+import {InspectorService} from './inspector.service'
+import {LoaderService} from './loader.service'
 
 enum Keys {
   F = 102,
@@ -79,103 +81,125 @@ enum Keys {
   ],
 })
 export class ViewerComponent implements AfterViewInit {
-  @ViewChild('rendererCanvas') renderCanvas: ElementRef<HTMLCanvasElement>;
-  grabbing = false;
-  scene: THREE.Scene;
+  @ViewChild('rendererCanvas') renderCanvas: ElementRef<HTMLCanvasElement>
+  grabbing = false
+  scene: THREE.Scene
 
   constructor(
     public inspectorService: InspectorService,
     private engineService: EngineService,
     private fullscreenService: FullscreenService,
     private loaderService: LoaderService,
-  ) {}
+    private route: ActivatedRoute,
+  ) {
+    const id = this.route.snapshot.paramMap.get('id')
+    console.log({id})
+    const loader = new GLTFLoader()
+    loader.load(`http://localhost:3000/models/${id}`, gltf => {
+      this.clear()
+
+      this.scene.add(gltf.scene)
+      this.inspectorService.clear()
+
+      const box = new THREE.Box3().setFromObject(this.scene)
+      const size = box.getSize(new THREE.Vector3()).length()
+
+      this.engineService.camera.near = size * 0.01
+      this.engineService.camera.far = size * 10
+      this.engineService.camera.updateProjectionMatrix()
+      this.engineService.controls.maxDistance = size * Math.PI
+      this.engineService.controls.setPosition(0, 0, size * 5)
+      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
+      this.engineService.controls.fitTo(this.scene, true)
+    })
+  }
 
   async ngAfterViewInit() {
-    this.scene = await this.engineService.createScene(this.renderCanvas);
-    this.engineService.animate();
+    this.scene = await this.engineService.createScene(this.renderCanvas)
+    this.engineService.animate()
   }
 
   @HostListener('document:keypress', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    if (event.keyCode === Keys.R) this.engineService.controls.fitTo(this.scene, true);
-    if (event.keyCode === Keys.F) this.fullscreenService.toggle();
+    if (event.keyCode === Keys.R) this.engineService.controls.fitTo(this.scene, true)
+    if (event.keyCode === Keys.F) this.fullscreenService.toggle()
   }
 
   async onFiles(files: Map<string, File>) {
-    const fileExtensions = {gltf: 'gltf', glb: 'glb'};
-    const extensions = Array.from(files.keys()).map(path => path.split('.').pop());
+    const fileExtensions = {gltf: 'gltf', glb: 'glb'}
+    const extensions = Array.from(files.keys()).map(path => path.split('.').pop())
 
     if (extensions.includes(fileExtensions.gltf) || extensions.includes(fileExtensions.glb)) {
-      let root: File = undefined;
-      let rootPath: string;
+      let root: File = undefined
+      let rootPath: string
       files.forEach(file => {
-        const extension = file.name.split('.').pop();
+        const extension = file.name.split('.').pop()
         if (extension === fileExtensions.gltf || extension === fileExtensions.glb) {
           if (root !== undefined)
-            console.warn('Mutliple gltf files are not supported. Only one will be loaded!');
-          root = file;
-          const path: string = (file as any).path || '';
-          rootPath = path.replace(file.name, '');
+            console.warn('Mutliple gltf files are not supported. Only one will be loaded!')
+          root = file
+          const path: string = (file as any).path || ''
+          rootPath = path.replace(file.name, '')
         }
-      });
-      const {scene, animations} = await this.loaderService.loadGltf(root, rootPath, files);
-      this.clear();
+      })
+      const {scene, animations} = await this.loaderService.loadGltf(root, rootPath, files)
+      this.clear()
 
-      this.scene.add(scene);
-      this.inspectorService.clear();
+      this.scene.add(scene)
+      this.inspectorService.clear()
 
-      const box = new THREE.Box3().setFromObject(this.scene);
-      const size = box.getSize(new THREE.Vector3()).length();
+      const box = new THREE.Box3().setFromObject(this.scene)
+      const size = box.getSize(new THREE.Vector3()).length()
 
-      this.engineService.camera.near = size * 0.01;
-      this.engineService.camera.far = size * 10;
-      this.engineService.camera.updateProjectionMatrix();
+      this.engineService.camera.near = size * 0.01
+      this.engineService.camera.far = size * 10
+      this.engineService.camera.updateProjectionMatrix()
       // TODO also prevent panning to far away!
-      this.engineService.controls.maxDistance = size * Math.PI;
+      this.engineService.controls.maxDistance = size * Math.PI
       // this.engineService.controls.boundaryEnclosesCamera = true;
       // this.engineService.controls.setBoundary(box.expandByScalar(10));
-      this.engineService.controls.setPosition(0, 0, size * 5);
-      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false);
-      this.engineService.controls.fitTo(this.scene, true);
+      this.engineService.controls.setPosition(0, 0, size * 5)
+      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
+      this.engineService.controls.fitTo(this.scene, true)
     }
   }
 
   onMouseDown() {
-    this.grabbing = true;
+    this.grabbing = true
   }
 
   onMouseUp() {
-    this.grabbing = false;
+    this.grabbing = false
   }
 
   onDoubleClick(event) {
-    if (!this.scene) return;
+    if (!this.scene) return
 
-    const x = (event.clientX / window.innerWidth) * 2 - 1;
-    const y = -(event.clientY / window.innerHeight) * 2 + 1;
-    const point = new THREE.Vector2(x, y);
+    const x = (event.clientX / window.innerWidth) * 2 - 1
+    const y = -(event.clientY / window.innerHeight) * 2 + 1
+    const point = new THREE.Vector2(x, y)
 
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(point, this.engineService.camera);
-    let intersects = [];
-    raycaster.intersectObject(this.inspectorService.initialScene, true, intersects);
-    if (!intersects.length) return;
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(point, this.engineService.camera)
+    let intersects = []
+    raycaster.intersectObject(this.inspectorService.initialScene, true, intersects)
+    if (!intersects.length) return
 
-    let min;
+    let min
     for (const i of intersects) {
-      if (!min || i.distance < min.distance) min = i;
+      if (!min || i.distance < min.distance) min = i
     }
-    this.engineService.controls.setTarget(min.point.x, min.point.y, min.point.z, true);
-    this.engineService.controls.dolly(min.distance / 2, true);
+    this.engineService.controls.setTarget(min.point.x, min.point.y, min.point.z, true)
+    this.engineService.controls.dolly(min.distance / 2, true)
   }
 
   onModeChanged(mode: string) {
-    if (!this.inspectorService.initialized) this.inspectorService.initialize(this.scene);
-    this.inspectorService.changeMode(mode, this.scene);
+    if (!this.inspectorService.initialized) this.inspectorService.initialize(this.scene)
+    this.inspectorService.changeMode(mode, this.scene)
   }
 
   private clear() {
-    this.scene.remove(...this.scene.children);
-    this.inspectorService.clear();
+    this.scene.remove(...this.scene.children)
+    this.inspectorService.clear()
   }
 }

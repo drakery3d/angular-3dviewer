@@ -8,9 +8,6 @@ export class UploadService {
   constructor(private httpClient: HttpClient) {}
 
   public upload(formData) {
-    return this.httpClient.post<any>('http://localhost:3000/upload', formData, {
-      reportProgress: true,
-      observe: 'events',
-    })
+    return this.httpClient.post('http://localhost:3000/upload', formData)
   }
 }

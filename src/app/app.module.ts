@@ -13,7 +13,6 @@ import {LoaderService} from './loader.service'
 import {OBJParserService} from './obj-parser'
 import {FullscreenDropzone} from './fullscreen-dropzone.component'
 import {EditorComponent} from './editor.component'
-
 import {UploadComponent} from './upload/upload.component'
 import {ModelsComponent} from './models/models.component'
 import {UploadService} from './upload.service'
@@ -33,7 +32,7 @@ import {UploadService} from './upload.service'
     HttpClientModule,
     RouterModule.forRoot([
       {path: 'upload', component: UploadComponent},
-      {path: 'viewer', component: ViewerComponent},
+      {path: 'viewer/:id', component: ViewerComponent},
       {path: 'models', component: ModelsComponent},
       {path: '', redirectTo: '/models', pathMatch: 'full'},
     ]),

@@ -1,7 +1,4 @@
-import {HttpErrorResponse} from '@angular/common/http'
 import {Component} from '@angular/core'
-import {of} from 'rxjs'
-import {catchError} from 'rxjs/operators'
 
 import {UploadService} from '../upload.service'
 
@@ -19,18 +16,8 @@ export class UploadComponent {
     const formData = new FormData()
     formData.append('file', file)
 
-    this.uploadService
-      .upload(formData)
-      .pipe(
-        catchError((error: HttpErrorResponse) => {
-          file.inProgress = false
-          return of(`${file.data.name} upload failed.`)
-        }),
-      )
-      .subscribe((event: any) => {
-        if (typeof event === 'object') {
-          console.log(event.body)
-        }
-      })
+    this.uploadService.upload(formData).subscribe((event: any) => {
+      const {modelId} = event
+    })
   }
 }
