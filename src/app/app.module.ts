@@ -14,7 +14,7 @@ import {OBJParserService} from './obj-parser'
 import {FullscreenDropzone} from './fullscreen-dropzone.component'
 import {EditorComponent} from './editor.component'
 import {UploadComponent} from './upload/upload.component'
-import {ModelsComponent} from './models/models.component'
+import {ModelsComponent} from './models.component'
 import {UploadService} from './upload.service'
 
 @NgModule({
@@ -34,6 +34,7 @@ import {UploadService} from './upload.service'
       {path: 'upload', component: UploadComponent},
       {path: 'viewer/:id', component: ViewerComponent},
       {path: 'models', component: ModelsComponent},
+      {path: 'editor/:id', component: EditorComponent},
       {path: '', redirectTo: '/models', pathMatch: 'full'},
     ]),
   ],

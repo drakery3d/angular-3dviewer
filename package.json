@@ -6,7 +6,8 @@
     "dev": "ng serve",
     "build": "ng build --prod",
     "heroku-postbuild": "ng build --prod",
-    "start": "ts-node server"
+    "start": "ts-node server",
+    "postinstall": "ngcc"
   },
   "private": true,
   "dependencies": {

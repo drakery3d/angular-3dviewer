@@ -9,8 +9,10 @@ import {promises as fsPromises} from 'fs'
 import * as gltfPipeline from 'gltf-pipeline'
 import * as obj2gltf from 'obj2gltf'
 import * as fbx2gltf from 'fbx2gltf'
+import {defaultState, EditorState} from '../shared/editor'
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads')
+const SETTINGS_JSON = 'settings.json'
 const upload = multer()
 const app = express()
 
@@ -29,6 +31,10 @@ app.post('/upload', upload.array('files'), async (req, res) => {
   await fs.ensureDir(sourceDir)
   await Promise.all(
     files.map(f => fsPromises.writeFile(path.join(sourceDir, f.originalname), f.buffer)),
+  )
+  await fsPromises.writeFile(
+    path.join(path.join(UPLOAD_DIR, modelId), SETTINGS_JSON),
+    JSON.stringify(defaultState),
   )
 
   const glbFilename = filenames.find(name => name.endsWith('.glb'))
@@ -117,6 +123,21 @@ app.get('/models/:id/:file', async (req, res) => {
 app.get('/models', async (req, res) => {
   const modelIds = await fs.readdir(UPLOAD_DIR)
   res.json({modelIds})
+})
+
+app.post('/editor/:id', async (req, res) => {
+  const {id} = req.params
+  const state: EditorState = req.body
+  const sourceDir = path.join(UPLOAD_DIR, id)
+  await fsPromises.writeFile(path.join(sourceDir, SETTINGS_JSON), JSON.stringify(state))
+  res.send()
+})
+
+app.get('/editor/:id', async (req, res) => {
+  const {id} = req.params
+  const sourceDir = path.join(UPLOAD_DIR, id)
+  const file = await fsPromises.readFile(path.join(sourceDir, SETTINGS_JSON))
+  res.json(JSON.parse(file.toString()))
 })
 
 app.listen(3000, () => console.log('server started on http://localhost:3000'))
