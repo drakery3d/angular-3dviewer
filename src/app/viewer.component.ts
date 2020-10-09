@@ -40,6 +40,7 @@ enum Keys {
   template: `
     <app-fullscreen-dropzone (filesAdded)="onFiles($event)"></app-fullscreen-dropzone>
     <div class="container">
+      <div *ngIf="loading">Loading...</div>
       <div class="ui" *ngIf="scene">
         <app-inspector-gui
           [selected]="inspectorService.mode"
@@ -84,6 +85,7 @@ export class ViewerComponent implements AfterViewInit {
   @ViewChild('rendererCanvas') renderCanvas: ElementRef<HTMLCanvasElement>
   grabbing = false
   scene: THREE.Scene
+  loading = false
 
   constructor(
     public inspectorService: InspectorService,
@@ -91,14 +93,25 @@ export class ViewerComponent implements AfterViewInit {
     private fullscreenService: FullscreenService,
     private loaderService: LoaderService,
     private route: ActivatedRoute,
-  ) {
+  ) {}
+
+  async ngAfterViewInit() {
+    this.scene = await this.engineService.createScene(this.renderCanvas)
+    this.engineService.animate()
+
     const id = this.route.snapshot.paramMap.get('id')
-    console.log({id})
+    if (!id) return
+
+    this.loading = true
+
+    const baseUrl = `http://localhost:3000/models/${id}/load`
+
     const loader = new GLTFLoader()
-    loader.load(`http://localhost:3000/models/${id}`, gltf => {
+    loader.load(baseUrl, gltf => {
       this.clear()
 
       this.scene.add(gltf.scene)
+      this.loading = false
       this.inspectorService.clear()
 
       const box = new THREE.Box3().setFromObject(this.scene)
@@ -112,11 +125,6 @@ export class ViewerComponent implements AfterViewInit {
       this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
       this.engineService.controls.fitTo(this.scene, true)
     })
-  }
-
-  async ngAfterViewInit() {
-    this.scene = await this.engineService.createScene(this.renderCanvas)
-    this.engineService.animate()
   }
 
   @HostListener('document:keypress', ['$event'])

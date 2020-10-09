@@ -1,4 +1,5 @@
 import {Component} from '@angular/core'
+import {Router} from '@angular/router'
 
 import {UploadService} from '../upload.service'
 
@@ -8,16 +9,16 @@ import {UploadService} from '../upload.service'
   styleUrls: ['./upload.component.sass'],
 })
 export class UploadComponent {
-  constructor(private uploadService: UploadService) {}
+  constructor(private uploadService: UploadService, private router: Router) {}
 
   onFiles(files: Map<string, File>) {
-    const file: any = Array.from(files)[0][1]
-
     const formData = new FormData()
-    formData.append('file', file)
+
+    files.forEach(file => formData.append('files', file))
 
     this.uploadService.upload(formData).subscribe((event: any) => {
       const {modelId} = event
+      this.router.navigate(['viewer', modelId])
     })
   }
 }
