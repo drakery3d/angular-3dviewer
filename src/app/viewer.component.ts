@@ -1,5 +1,7 @@
+import {HttpClient} from '@angular/common/http'
 import {Component, ViewChild, ElementRef, AfterViewInit, HostListener} from '@angular/core'
 import {ActivatedRoute} from '@angular/router'
+import {EditorState} from 'shared/editor'
 import * as THREE from 'three'
 import {GLTFLoader, GLTF} from 'three/examples/jsm/loaders/GLTFLoader'
 
@@ -86,6 +88,7 @@ export class ViewerComponent implements AfterViewInit {
   grabbing = false
   scene: THREE.Scene
   loading = false
+  state: EditorState
 
   constructor(
     public inspectorService: InspectorService,
@@ -93,6 +96,7 @@ export class ViewerComponent implements AfterViewInit {
     private fullscreenService: FullscreenService,
     private loaderService: LoaderService,
     private route: ActivatedRoute,
+    private http: HttpClient,
   ) {}
 
   async ngAfterViewInit() {
@@ -101,6 +105,11 @@ export class ViewerComponent implements AfterViewInit {
 
     const id = this.route.snapshot.paramMap.get('id')
     if (!id) return
+
+    // TODO don't duplicate this code here and in editor, instead some common service
+    this.http.get('http://localhost:3000/editor/' + id).subscribe(settings => {
+      this.state = settings as EditorState
+    })
 
     this.loading = true
 
@@ -124,6 +133,8 @@ export class ViewerComponent implements AfterViewInit {
       this.engineService.controls.setPosition(0, 0, size * 5)
       this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
       this.engineService.controls.fitToBox(this.scene, true)
+
+      this.setupEditor()
     })
   }
 
@@ -209,5 +220,25 @@ export class ViewerComponent implements AfterViewInit {
   private clear() {
     this.scene.remove(...this.scene.children)
     this.inspectorService.clear()
+  }
+
+  private setupEditor() {
+    this.engineService.camera.fov = this.state.camera.fov
+
+    const pos = this.state.camera.position
+    const tar = this.state.camera.target
+    if (pos && tar) {
+      this.engineService.controls.setPosition(pos.x, pos.y, pos.z)
+      this.engineService.controls.setTarget(tar.x, tar.y, tar.z)
+    } else {
+      const box = new THREE.Box3().setFromObject(this.scene)
+      const size = box.getSize(new THREE.Vector3()).length()
+      this.engineService.controls.setPosition(0, 0, size * 5)
+      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
+      this.engineService.controls.fitToBox(this.scene, true)
+    }
+
+    this.engineService.camera.updateProjectionMatrix()
+    this.engineService.needsUpdate = true
   }
 }

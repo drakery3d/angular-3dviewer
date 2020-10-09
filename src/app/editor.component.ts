@@ -76,7 +76,6 @@ export class EditorComponent {
     this.http.get('http://localhost:3000/editor/' + this.id).subscribe(settings => {
       this.state = settings as EditorState
       console.log(this.state)
-      this.setupEditor()
     })
 
     const baseUrl = `http://localhost:3000/models/${this.id}/load`
@@ -91,11 +90,11 @@ export class EditorComponent {
 
       this.engineService.camera.near = size * 0.01
       this.engineService.camera.far = size * 10
-      this.engineService.camera.updateProjectionMatrix()
       this.engineService.controls.maxDistance = size * Math.PI
-      this.engineService.controls.setPosition(0, 0, size * 5)
-      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
-      this.engineService.controls.fitToBox(this.scene, true)
+      this.engineService.camera.updateProjectionMatrix()
+      this.engineService.needsUpdate = true
+
+      this.setupEditor()
     })
   }
 
@@ -108,8 +107,23 @@ export class EditorComponent {
   }
 
   onSave() {
-    console.log(this.state)
-    this.http.post('http://localhost:3000/editor/' + this.id, this.state).subscribe()
+    const target = new THREE.Vector3()
+    this.engineService.controls.getTarget(target)
+    const position = new THREE.Vector3()
+    this.engineService.controls.getPosition(position)
+
+    const payload: EditorState = {
+      ...this.state,
+      camera: {
+        ...this.state.camera,
+        position: {x: position.x, y: position.y, z: position.z},
+        target: {x: target.x, y: target.y, z: target.z},
+      },
+    }
+
+    console.log(payload)
+
+    this.http.post('http://localhost:3000/editor/' + this.id, payload).subscribe()
   }
 
   onMouseDown() {
@@ -122,8 +136,22 @@ export class EditorComponent {
 
   private setupEditor() {
     this.engineService.camera.fov = this.state.camera.fov
+    this.fovSlider.nativeElement.value = this.state.camera.fov as any
+
+    const pos = this.state.camera.position
+    const tar = this.state.camera.target
+    if (pos && tar) {
+      this.engineService.controls.setPosition(pos.x, pos.y, pos.z)
+      this.engineService.controls.setTarget(tar.x, tar.y, tar.z)
+    } else {
+      const box = new THREE.Box3().setFromObject(this.scene)
+      const size = box.getSize(new THREE.Vector3()).length()
+      this.engineService.controls.setPosition(0, 0, size * 5)
+      this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
+      this.engineService.controls.fitToBox(this.scene, true)
+    }
+
     this.engineService.camera.updateProjectionMatrix()
     this.engineService.needsUpdate = true
-    this.fovSlider.nativeElement.value = this.state.camera.fov as any
   }
 }
