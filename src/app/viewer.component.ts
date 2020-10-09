@@ -123,13 +123,13 @@ export class ViewerComponent implements AfterViewInit {
       this.engineService.controls.maxDistance = size * Math.PI
       this.engineService.controls.setPosition(0, 0, size * 5)
       this.engineService.controls.rotateTo(0, Math.PI * 0.5, false)
-      this.engineService.controls.fitTo(this.scene, true)
+      this.engineService.controls.fitToBox(this.scene, true)
     })
   }
 
   @HostListener('document:keypress', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    if (event.keyCode === Keys.R) this.engineService.controls.fitTo(this.scene, true)
+    if (event.keyCode === Keys.R) this.engineService.controls.fitToBox(this.scene, true)
     if (event.keyCode === Keys.F) this.fullscreenService.toggle()
   }
 
@@ -190,7 +190,7 @@ export class ViewerComponent implements AfterViewInit {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera(point, this.engineService.camera)
     let intersects = []
-    raycaster.intersectObject(this.inspectorService.initialScene, true, intersects)
+    raycaster.intersectObject(this.scene, true, intersects)
     if (!intersects.length) return
 
     let min
