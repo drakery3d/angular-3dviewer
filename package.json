@@ -24,6 +24,7 @@
     "fs-extra": "^9.0.1",
     "gltf-pipeline": "^3.0.0",
     "multer": "^1.4.2",
+    "obj2gltf": "^3.1.0",
     "rxjs": "~6.5.5",
     "shortid": "^2.2.15",
     "three": "^0.118.3",

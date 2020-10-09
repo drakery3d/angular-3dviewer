@@ -7,6 +7,7 @@ import * as shortid from 'shortid'
 import * as fs from 'fs-extra'
 import {promises as fsPromises} from 'fs'
 import * as gltfPipeline from 'gltf-pipeline'
+import * as obj2gltf from 'obj2gltf'
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads')
 const upload = multer()
@@ -37,25 +38,36 @@ app.post('/upload', upload.array('files'), async (req, res) => {
     await fs.ensureDir(convertedDir)
 
     const filename = path.parse(glbFilename).name
-    const results2 = await gltfPipeline.processGltf(results1.gltf, {separate: true})
-    await fsPromises.writeFile(
-      path.join(convertedDir, `${filename}.gltf`),
-      JSON.stringify(results2.gltf),
-    )
+    await seperateGltf(results1.gltf, convertedDir, filename)
 
-    const separateResources = results2.separateResources
-    for (const relativePath in separateResources) {
-      if (separateResources.hasOwnProperty(relativePath)) {
-        await fsPromises.writeFile(
-          path.join(convertedDir, relativePath),
-          separateResources[relativePath],
-        )
-      }
-    }
+    return res.json({modelId})
   }
 
-  res.json({modelId})
+  const objFilename = filenames.find(name => name.endsWith('.obj'))
+  if (objFilename) {
+    const gltf = await obj2gltf(path.join(sourceDir, objFilename))
+
+    const filename = path.parse(objFilename).name
+    await fs.ensureDir(convertedDir)
+    await seperateGltf(gltf, convertedDir, filename)
+
+    return res.json({modelId})
+  }
+
+  res.json({success: false, reason: 'no supported formats found'})
 })
+
+async function seperateGltf(gltf: any, dir: string, filename: string) {
+  const results2 = await gltfPipeline.processGltf(gltf, {separate: true})
+  await fsPromises.writeFile(path.join(dir, `${filename}.gltf`), JSON.stringify(results2.gltf))
+
+  const separateResources = results2.separateResources
+  for (const relativePath in separateResources) {
+    if (separateResources.hasOwnProperty(relativePath)) {
+      await fsPromises.writeFile(path.join(dir, relativePath), separateResources[relativePath])
+    }
+  }
+}
 
 app.get('/models/:id/load', async (req, res) => {
   const dir = path.join(UPLOAD_DIR, req.params.id, 'converted')
