@@ -8,6 +8,7 @@ import * as fs from 'fs-extra'
 import {promises as fsPromises} from 'fs'
 import * as gltfPipeline from 'gltf-pipeline'
 import * as obj2gltf from 'obj2gltf'
+import * as fbx2gltf from 'fbx2gltf'
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads')
 const upload = multer()
@@ -50,6 +51,21 @@ app.post('/upload', upload.array('files'), async (req, res) => {
     const filename = path.parse(objFilename).name
     await fs.ensureDir(convertedDir)
     await seperateGltf(gltf, convertedDir, filename)
+
+    return res.json({modelId})
+  }
+
+  const fbxFilename = filenames.find(name => name.endsWith('.fbx'))
+  if (fbxFilename) {
+    const filename = path.parse(fbxFilename).name
+    await fs.ensureDir(convertedDir)
+    await fbx2gltf(path.join(sourceDir, fbxFilename), path.join(convertedDir, `${filename}.gltf`))
+    const generatedFiles = await fsPromises.readdir(path.join(convertedDir, `${filename}_out`))
+    await Promise.all(
+      generatedFiles.map(f =>
+        fs.rename(path.join(convertedDir, `${filename}_out`, f), path.join(convertedDir, f)),
+      ),
+    )
 
     return res.json({modelId})
   }
